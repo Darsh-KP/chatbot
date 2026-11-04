@@ -339,3 +339,4 @@ pyrightconfig.json
 
 # Ignore all data file
 *.pdf
+/chroma_db/chroma.sqlite3

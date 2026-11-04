@@ -5,7 +5,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from ..models.ChunkModel import ChunkModel
+from models.ChunkModel import ChunkModel
+from exceptions import FailedToReadTagException
 import re
 
 # -----------------------------------------------------------------
@@ -38,9 +39,7 @@ VECTOR_STORE: dict[str, Chroma] = {}
 
 # ----------------------- Embedding Model ---------------------------
 
-# TODO: Actually download embedding model
 EMBEDDING_MODEL = OllamaEmbeddings(model="nomic-embed-text")
-
 
 # ----------------------- Collection Functions ------------------------
 
@@ -84,9 +83,8 @@ def extract_adoc_metadata(file_path: Path) -> list[str]:
                 tags.extend([t.strip() for t in raw_tags if t.strip()])
 
     except Exception as e:
-        # TODO Make a more descriptive exception
         LOGGER.error(f"Failed to extract tags from {file_path}: {e}")
-        raise e
+        raise FailedToReadTagException(f"Could not read tags from {file_path}") from e
 
     return tags
 
@@ -101,14 +99,16 @@ def get_tags(adoc_path: Path) -> list[str]:
     try:
         # Extract any explicit tags from the adoc file header
         header_tags = extract_adoc_metadata(adoc_path)
-    except Exception:
-        # TODO Do something with this error ;-;
+
+    # Don't need to really handle exception since the path tags can be used instead.
+    except FailedToReadTagException:
         pass
 
     # Combine them into a master list of tags for this file
     base_tags = path_tags if header_tags is None else list(set(path_tags + header_tags))
     return base_tags
 
+# ----------------------- ADOC Parsing Helper Functions -------------------------------
 
 def clean_adoc(text: str) -> str:
     """Remove AsciiDoc noise while preserving headings and readable content."""
