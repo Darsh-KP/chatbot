@@ -22,6 +22,7 @@ PERSISTY_DIRECTORY = str(PROJECT_ROOT / "chroma_db")
 
 CHUNK_SIZE = 900
 CHUNK_OVERLAP = 150
+BATCH_SIZE = 16
 SEPARATORS = ["\n== ", "\n=== ", "\n==== ", "\n\n", "\n", " "]
 
 # ----------------------- Logger -------------------------------
@@ -202,7 +203,12 @@ def ingest_adoc_directory(collection_name: str):
 
     # Ingest into Chroma if chunks were found
     if document_chunks:
-        collection.add_documents(documents=document_chunks, ids=chunk_ids)
+        for start in range(0, len(document_chunks), BATCH_SIZE):
+            end = start + BATCH_SIZE
+            collection.add_documents(
+                documents=document_chunks[start:end],
+                ids=chunk_ids[start:end],
+            )
         LOGGER.info(f"Successfully ingested {len(document_chunks)} chunks from {DATA_FOLDER_PATH}")
         return len(document_chunks)
 
