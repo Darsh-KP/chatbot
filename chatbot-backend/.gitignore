@@ -336,3 +336,6 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm+all,intellij+all,visualstudiocode,python
+
+# Ignore all data file
+*.pdf
