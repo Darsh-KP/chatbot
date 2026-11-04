@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # Constants
 # ----------------------------------------------------------------------------------------
 
-data_folder_path = Path("../data")
+data_folder_path = Path(__file__).resolve().parents[1] / "data"
 
 chunk_size = 1000
 chunk_overlap = 200
@@ -63,6 +63,6 @@ def split_pdf_documents(pdf_documents):
     logger.info(f"Splitted total {len(document_chunks)} documents chunks.")
     return document_chunks
 
-pdf_documents = load_pdf_documents()
-document_chunks = split_pdf_documents(pdf_documents)
-
+if __name__ == "__main__":
+    pdf_documents = load_pdf_documents()
+    document_chunks = split_pdf_documents(pdf_documents)
