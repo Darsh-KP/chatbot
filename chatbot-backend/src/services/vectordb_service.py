@@ -1,9 +1,9 @@
+import hashlib
 import logging
 from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
-from langchain_community.document_loaders import UnstructuredFileLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from ..models.ChunkModel import ChunkModel
 import re
@@ -15,11 +15,12 @@ import re
 
 # ----------------------- Constants -------------------------------
 
-DATA_FOLDER_PATH = Path("../../data")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_FOLDER_PATH = PROJECT_ROOT / "data"
 PAGES_FOLDER_PATH = DATA_FOLDER_PATH / "pages"
-PERSISTY_DIRECTORY = "../../chroma_db"
+PERSISTY_DIRECTORY = str(PROJECT_ROOT / "chroma_db")
 
-CHUNK_SIZE = 700
+CHUNK_SIZE = 900
 CHUNK_OVERLAP = 150
 SEPARATORS = ["\n== ", "\n=== ", "\n==== ", "\n\n", "\n", " "]
 
@@ -89,6 +90,7 @@ def extract_adoc_metadata(file_path: Path) -> list[str]:
     return tags
 
 def get_tags(adoc_path: Path) -> list[str]:
+    adoc_path = adoc_path.resolve()
 
     # Generate path-based tags automatically
     relative_path = adoc_path.relative_to(DATA_FOLDER_PATH)
@@ -105,6 +107,26 @@ def get_tags(adoc_path: Path) -> list[str]:
     # Combine them into a master list of tags for this file
     base_tags = path_tags if header_tags is None else list(set(path_tags + header_tags))
     return base_tags
+
+
+def clean_adoc(text: str) -> str:
+    """Remove AsciiDoc noise while preserving headings and readable content."""
+    lines = []
+    for line in text.replace("\r\n", "\n").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(":") or stripped.startswith("//"):
+            continue
+        if stripped.startswith("image::") or stripped.startswith("include::"):
+            continue
+        lines.append(line.rstrip())
+    return "\n".join(lines).strip()
+
+
+def _document_title(text: str, fallback: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("="):
+            return line.lstrip("=").strip() or fallback
+    return fallback
 
 # ----------------------- ADOC Ingestion -------------------------------
 
@@ -136,20 +158,21 @@ def ingest_adoc_directory(collection_name: str):
         LOGGER.debug(f"Loading {adoc_file}")
         try:
             # Create UnstructuredFileLoader to load specific adoc_file
-            loader = UnstructuredFileLoader(
-                str(adoc_file), # File path
-                mode="single" # Load whole file as a single LangChain Document Object
-            )
-
-            # Load raw document metadata (filename, etc.) and text
-            docs = loader.load()
+            raw_text = adoc_file.read_text(encoding="utf-8", errors="replace")
+            cleaned_text = clean_adoc(raw_text)
+            if not cleaned_text:
+                continue
+            title = _document_title(cleaned_text, adoc_file.stem)
+            docs = [Document(page_content=cleaned_text, metadata={"source": str(adoc_file)})]
 
             # Get chunks using the text splitter
             chunks = text_splitter.split_documents(docs)
 
             # Go through each chunk convert to LangChain Document
             for i, chunk in enumerate(chunks):
-                chunk_id = f"{adoc_file.stem}_chunk_{i}"
+                relative = adoc_file.relative_to(DATA_FOLDER_PATH).as_posix()
+                digest = hashlib.sha1(relative.encode()).hexdigest()[:10]
+                chunk_id = f"{digest}_chunk_{i}"
 
                 # make a chunk model with an id, the text, file name and tags
                 chunk_model = ChunkModel(
@@ -163,12 +186,15 @@ def ingest_adoc_directory(collection_name: str):
                     page_content=chunk_model.text,
                     metadata={
                         "file": chunk_model.file,
-                        "tags": chunk_model.tags or []
+                        "source": chunk_model.file,
+                        "title": title,
+                        "chunk_index": i,
+                        "tags": ",".join(chunk_model.tags or [])
                     }
                 )
 
                 # Add the current chunk to the list of chunks
-                document_chunks.extend(doc)
+                document_chunks.append(doc)
                 chunk_ids.append(chunk_model.id)
 
         except Exception as e:
@@ -176,9 +202,9 @@ def ingest_adoc_directory(collection_name: str):
 
     # Ingest into Chroma if chunks were found
     if document_chunks:
-        embedded_docs = collection.add_documents(documents=document_chunks, ids=chunk_ids)
-        LOGGER.info(f"Successfully ingested {len(embedded_docs)} chunks from {DATA_FOLDER_PATH}")
-        return len(embedded_docs)
+        collection.add_documents(documents=document_chunks, ids=chunk_ids)
+        LOGGER.info(f"Successfully ingested {len(document_chunks)} chunks from {DATA_FOLDER_PATH}")
+        return len(document_chunks)
 
     LOGGER.info(f"No chunks found to ingest from {DATA_FOLDER_PATH}")
     return 0
