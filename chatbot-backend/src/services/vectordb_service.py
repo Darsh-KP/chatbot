@@ -44,6 +44,7 @@ EMBEDDING_MODEL = OllamaEmbeddings(model="nomic-embed-text")
 # ----------------------- Collection Functions ------------------------
 
 def create_or_get_collection(collection_name: str) -> Chroma:
+    """Returns collection by name if exists, creates new Chroma DB otherwise."""
     if collection_name not in VECTOR_STORE:
         VECTOR_STORE[collection_name] = Chroma(
             persist_directory=PERSIST_DIRECTORY,
@@ -55,12 +56,14 @@ def create_or_get_collection(collection_name: str) -> Chroma:
 def search_collection(
     collection_name: str, query: str, k: int = 5
 ) -> list[tuple[Document, float]]:
+    """Given a query and collection name, returns the K most similar documents"""
     collection = create_or_get_collection(collection_name)
     return collection.similarity_search_with_score(query, k)
 
 # ----------------------- ADOC Tag Extraction -------------------------------
 
-def extract_adoc_metadata(file_path: Path) -> list[str]:
+def _extract_adoc_metadata(file_path: Path) -> list[str]:
+    """Attempts to extract header tags from ascii document."""
     try:
         lines = file_path.read_text(encoding="utf-8").splitlines()[:20]
         tags: list[str] = []
@@ -77,7 +80,8 @@ def extract_adoc_metadata(file_path: Path) -> list[str]:
 
     return tags
 
-def get_tags(adoc_path: Path) -> list[str]:
+def _get_tags(adoc_path: Path) -> list[str]:
+    """Gets tags for specific ascii document, those being path names and header tags if present."""
     adoc_path = adoc_path.resolve()
 
     # Generate path-based tags automatically
@@ -86,7 +90,7 @@ def get_tags(adoc_path: Path) -> list[str]:
 
     try:
         # Extract any explicit tags from the adoc file header
-        header_tags = extract_adoc_metadata(adoc_path)
+        header_tags = _extract_adoc_metadata(adoc_path)
 
     # Don't need to really handle exception since the path tags can be used instead.
     except FailedToReadTagException:
@@ -97,7 +101,7 @@ def get_tags(adoc_path: Path) -> list[str]:
 
 # ----------------------- ADOC Parsing Helper Functions -------------------------------
 
-def clean_adoc(text: str) -> str:
+def _clean_adoc(text: str) -> str:
     """Remove AsciiDoc noise while preserving headings and readable content."""
     lines = []
     for line in text.replace("\r\n", "\n").splitlines():
@@ -111,6 +115,7 @@ def clean_adoc(text: str) -> str:
 
 
 def _document_title(text: str, fallback: str) -> str:
+    """Gets title of document, if not falls back to default fallback argument."""
     for line in text.splitlines():
         if line.startswith("="):
             return line.lstrip("=").strip() or fallback
@@ -118,7 +123,9 @@ def _document_title(text: str, fallback: str) -> str:
 
 # ----------------------- ADOC Ingestion -------------------------------
 
-def ingest_adoc_directory(collection_name: str):
+def ingest_adoc_directory(collection_name: str) -> int:
+    """Ingests Ascii Docs, embeds them and saves vectors to local Chroma DB
+    Returns number of document chunks ingested."""
 
     # Get the target Chroma collection
     collection = create_or_get_collection(collection_name)
@@ -149,7 +156,7 @@ def ingest_adoc_directory(collection_name: str):
         LOGGER.debug(f"Loading {adoc_file}")
         try:
             raw_text = adoc_file.read_text(encoding="utf-8", errors="replace")
-            cleaned_text = clean_adoc(raw_text)
+            cleaned_text = _clean_adoc(raw_text)
             if not cleaned_text:
                 continue
             title = _document_title(cleaned_text, adoc_file.stem)
@@ -159,7 +166,7 @@ def ingest_adoc_directory(collection_name: str):
             chunks = text_splitter.split_documents(docs)
             relative = adoc_file.relative_to(DATA_FOLDER_PATH).as_posix()
             digest = hashlib.sha1(relative.encode()).hexdigest()[:10]
-            tags = get_tags(adoc_file)
+            tags = _get_tags(adoc_file)
 
             # Go through each chunk convert to LangChain Document
             for i, chunk in enumerate(chunks):
