@@ -19,7 +19,7 @@ import re
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_FOLDER_PATH = PROJECT_ROOT / "data"
 PAGES_FOLDER_PATH = DATA_FOLDER_PATH / "pages"
-PERSISTY_DIRECTORY = str(PROJECT_ROOT / "chroma_db")
+PERSIST_DIRECTORY = str(PROJECT_ROOT / "chroma_db")
 
 CHUNK_SIZE = 900
 CHUNK_OVERLAP = 150
@@ -43,42 +43,31 @@ EMBEDDING_MODEL = OllamaEmbeddings(model="nomic-embed-text")
 
 # ----------------------- Collection Functions ------------------------
 
-# Function used to create collection
-def create_or_get_collection(collection_name: str):
-
+def create_or_get_collection(collection_name: str) -> Chroma:
     if collection_name not in VECTOR_STORE:
         VECTOR_STORE[collection_name] = Chroma(
-            persist_directory=PERSISTY_DIRECTORY,
+            persist_directory=PERSIST_DIRECTORY,
             collection_name=collection_name,
-            embedding_function=EMBEDDING_MODEL
+            embedding_function=EMBEDDING_MODEL,
         )
     return VECTOR_STORE[collection_name]
 
-# Function that searches collection, returns k most relevant results
-def search_collection(collection_name:str, query:str, k:int=5):
-
-    # Get collection
+def search_collection(
+    collection_name: str, query: str, k: int = 5
+) -> list[tuple[Document, float]]:
     collection = create_or_get_collection(collection_name)
-
-    # Perform the similarity search
-    results = collection.similarity_search_with_score(query, k)
-
-    return results
+    return collection.similarity_search_with_score(query, k)
 
 # ----------------------- ADOC Tag Extraction -------------------------------
 
 def extract_adoc_metadata(file_path: Path) -> list[str]:
-    tags = []
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            # Read the first 20 lines to check for attributes/headers
-            lines = [f.readline() for _ in range(20)]
+        lines = file_path.read_text(encoding="utf-8").splitlines()[:20]
+        tags: list[str] = []
 
         for line in lines:
-            # Look for AsciiDoc tag attributes, e.g., ":tags: python, chroma"
             tag_match = re.match(r"^:tags:\s*(.*)", line, re.IGNORECASE)
             if tag_match:
-                # Split comma-separated tags and strip whitespace
                 raw_tags = tag_match.group(1).split(",")
                 tags.extend([t.strip() for t in raw_tags if t.strip()])
 
@@ -95,18 +84,16 @@ def get_tags(adoc_path: Path) -> list[str]:
     relative_path = adoc_path.relative_to(DATA_FOLDER_PATH)
     path_tags = list(relative_path.parts[:-1])
 
-    header_tags = None
     try:
         # Extract any explicit tags from the adoc file header
         header_tags = extract_adoc_metadata(adoc_path)
 
     # Don't need to really handle exception since the path tags can be used instead.
     except FailedToReadTagException:
-        pass
+        header_tags = []
 
-    # Combine them into a master list of tags for this file
-    base_tags = path_tags if header_tags is None else list(set(path_tags + header_tags))
-    return base_tags
+    # Preserve path/header order while removing duplicates.
+    return list(dict.fromkeys(path_tags + header_tags))
 
 # ----------------------- ADOC Parsing Helper Functions -------------------------------
 
@@ -142,7 +129,10 @@ def ingest_adoc_directory(collection_name: str):
         raise FileNotFoundError(f"{PAGES_FOLDER_PATH} does not exist")
 
     # Recursively search through page folder for all adoc files
-    adoc_files = list(PAGES_FOLDER_PATH.glob("**/*.adoc")) + list(PAGES_FOLDER_PATH.glob("**/*.asciidoc"))
+    adoc_files = sorted(
+        list(PAGES_FOLDER_PATH.glob("**/*.adoc"))
+        + list(PAGES_FOLDER_PATH.glob("**/*.asciidoc"))
+    )
 
     document_chunks = []
     chunk_ids = []
@@ -158,7 +148,6 @@ def ingest_adoc_directory(collection_name: str):
     for adoc_file in adoc_files:
         LOGGER.debug(f"Loading {adoc_file}")
         try:
-            # Create UnstructuredFileLoader to load specific adoc_file
             raw_text = adoc_file.read_text(encoding="utf-8", errors="replace")
             cleaned_text = clean_adoc(raw_text)
             if not cleaned_text:
@@ -168,11 +157,12 @@ def ingest_adoc_directory(collection_name: str):
 
             # Get chunks using the text splitter
             chunks = text_splitter.split_documents(docs)
+            relative = adoc_file.relative_to(DATA_FOLDER_PATH).as_posix()
+            digest = hashlib.sha1(relative.encode()).hexdigest()[:10]
+            tags = get_tags(adoc_file)
 
             # Go through each chunk convert to LangChain Document
             for i, chunk in enumerate(chunks):
-                relative = adoc_file.relative_to(DATA_FOLDER_PATH).as_posix()
-                digest = hashlib.sha1(relative.encode()).hexdigest()[:10]
                 chunk_id = f"{digest}_chunk_{i}"
 
                 # make a chunk model with an id, the text, file name and tags
@@ -180,13 +170,12 @@ def ingest_adoc_directory(collection_name: str):
                     id=chunk_id,
                     text=chunk.page_content,
                     file=str(adoc_file),
-                    tags=get_tags(adoc_file)
+                    tags=tags
                 )
 
                 doc = Document(
                     page_content=chunk_model.text,
                     metadata={
-                        "file": chunk_model.file,
                         "source": chunk_model.file,
                         "title": title,
                         "chunk_index": i,
