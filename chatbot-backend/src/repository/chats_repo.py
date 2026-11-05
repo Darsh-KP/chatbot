@@ -2,10 +2,10 @@ import os
 import sqlite3
 
 from pathlib import Path
-from contextlib import Closing
+from contextlib import closing
 
-from MsgModel import MsgModel
-from ChatModel import ChatModel
+from models.MsgModel import MsgModel
+from models.ChatModel import ChatModel
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chats (
@@ -20,17 +20,16 @@ CREATE TABLE IF NOT EXISTS chats (
 """
 
 SELECT = """
-    SELECT role, msg
+    SELECT chat_id, role, msg
     FROM chats
     WHERE chat_id = ?
     ORDER BY seq_num;
 """
 
 SELECT_CHATS = """
-    SELECT chat_id, msg
+    SELECT msg
     FROM chats
-    WHERE user_id = ? AND seq_num = 0;
-    ORDER BY created_at DESC;
+    WHERE chat_id = ? AND seq_num = 0;
 """
 
 INSERT = """
@@ -58,20 +57,20 @@ def fetch_chat(chat_id: int) -> list[MsgModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         rows = conn.execute(SELECT, (chat_id,)).fetchall()
             
-    return [MsgModel(role=role, msg=msg) for role, msg in rows]
+    return [MsgModel(chat_id=chat_id, role=role, text=msg) for chat_id, role, msg in rows]
 
-def fetch_chats_by_user(user_id: int) -> list[ChatModel]:
+def fetch_chat_info(chat_id: int) -> ChatModel:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
-        rows = conn.execute(SELECT_CHATS, (chat_id,)).fetchall()
+        row = conn.execute(SELECT_CHATS, (chat_id,)).fetchone()
             
-    return [ChatModel(chat_id=chat_id, first_msg=msg) for chat_id, msg in rows]
+    return ChatModel(first_msg=row[0])
 
 def add_msg_to_chat(chat_id: int, role: int, msg: str) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
-            conn.execute(INSERT, (chat_id, role, msg))
+            conn.execute(INSERT, (chat_id, None, role, msg))
 
-def delete_chat(chat_id: int) -> None;
+def delete_chat(chat_id: int) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
             conn.execute(DELETE, (chat_id,))

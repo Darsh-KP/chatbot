@@ -1,10 +1,11 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from secrets import randbits
+from secrets import randbits    
 
-import chats_repo
+from repository import chats_repo
 
-from ChatModel import ChatModel
-from MsgModel import MsgModel
+from models.ChatModel import ChatModel
+from models.MsgModel import MsgModel
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,10 +28,13 @@ def add_msg(msg: MsgModel):
 
     return {"chat_id": chat_id}
 
-@app.get("/api/chats/{user_id}", response_model=list[ChatModel])
-def get_chats():
-    return chats_repo.fetch_chats_by_user(int(user_id))
+# This should be called for all chats that the client saves
+# in local storage.
+@app.get("/api/chats/{chat_id}", response_model=ChatModel)
+def get_chat_info(chat_id: int):
+    return chats_repo.fetch_chat_info(chat_id)
 
+# Get all messages stored within a chat
 @app.get("/api/chats/{chat_id}/messages", response_model=list[MsgModel])
-def get_messages():
-    return chats_repo.get_messages(int(chat_id))
+def get_messages(chat_id: int):
+    return chats_repo.fetch_chat(chat_id)
