@@ -1,8 +1,3 @@
-/* Material tokens resolve for the wrapper's color-scheme, avoiding a second hard-coded palette. */
-/*
-  - most of the classes are used here to ensure that the light/dark mode toggle works correctly
-  - note how the variables all take values from the material design tokens
- */
 .chat-layout {
   display: flex;
   width: 100%;
@@ -83,6 +78,10 @@
 .chat-user-message {
   background: var(--mat-sys-primary-container);
   color: var(--mat-sys-on-primary-container);
+}
+
+.user-label {
+  color: var(--mat-sys-tertiary);
 }
 
 .chat-assistant-message {
