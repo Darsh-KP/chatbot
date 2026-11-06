@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from secrets import randbits    
+from fastapi import FastAPI, Body, Response
+from fastapi.responses import JSONResponse
+from secrets import randbits
+from typing import Annotated
 
 from repository import chats_repo
 
@@ -14,27 +16,38 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# If a new chat is being created, the frontend needs to keep track of 
-# the chats assigned to the user by refreshing get_chats() and route
-# to the new chat
-@app.post("/api/send_msg")
-def add_msg(msg: MsgModel):
-    chat_id = msg.chat_id
+@app.post("/chats/new")
+def new_chat(user_message: Annotated[str, Body(embed=True)]):
+    chat_id = randbits(63)
+    chats_repo.new_chat(chat_id, user_message)
 
-    if msg.chat_id is None:
-        chat_id = randbits(63)
+    # Unimplemented
+    return JSONResponse(content={"chat_id": chat_id, "system_message": None}, status_code=201)
 
-    chats_repo.add_msg_to_chat(chat_id, msg.role, msg.text)
+@app.post("/chats/{chat_id}")
+def add_msg(chat_id: int, msg: MsgModel):
+    added_row = chats_repo.add_msg_to_chat(chat_id, msg.role, msg.text)
 
-    return {"chat_id": chat_id}
+    # Unimplemented; the system needs to produce this
+    if added_row == True: 
+        return JSONResponse(content=MsgModel(epoch_seconds=None, role=1, text="").model_dump(mode="json"), status_code=201)
+    else:
+        return Response(status_code=404)
 
-# This should be called for all chats that the client saves
-# in local storage.
-@app.get("/api/chats/{chat_id}", response_model=ChatModel)
-def get_chat_info(chat_id: int):
-    return chats_repo.fetch_chat_info(chat_id)
+# Get all chat IDs
+@app.get("/chats")
+def get_chat_info():
+    return chats_repo.fetch_all_chats()
 
 # Get all messages stored within a chat
-@app.get("/api/chats/{chat_id}/messages", response_model=list[MsgModel])
+@app.get("/chats/{chat_id}", response_model=list[MsgModel])
 def get_messages(chat_id: int):
-    return chats_repo.fetch_chat(chat_id)
+    output = chats_repo.fetch_chat(chat_id)
+    if len(output) == 0: return Response(status_code=404)
+    else: return output
+
+@app.delete("/chats/{chat_id}")
+def delete_chat(chat_id: int):
+    deleted = chats_repo.delete_chat(chat_id)
+    if deleted == True: return Response(status_code=204)
+    else: return Response(status_code=404)
