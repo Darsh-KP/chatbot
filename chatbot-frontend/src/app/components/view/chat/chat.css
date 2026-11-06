@@ -6,7 +6,6 @@
 .chat-layout {
   display: flex;
   width: 100%;
-  height: 100vh;
   height: 100dvh;
   overflow: hidden;
   color-scheme: dark;
@@ -129,7 +128,6 @@
   /* Switch to a horizontal thread strip on narrow screens so chat history stays reachable. */
   .chat-layout {
     height: auto;
-    min-height: 100vh;
     min-height: 100dvh;
     flex-direction: column;
     overflow: visible;
@@ -159,4 +157,19 @@
     height: calc(100dvh - 10rem);
     min-height: 24rem;
   }
+}
+
+.fade-mask-container {
+  --mask-gradient: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0,0,0,0.25) 10px,
+    black 14px,
+    black calc(100% - 14px),
+    rgba(0,0,0,0.25) calc(100% - 10px),
+    transparent 100%
+  );
+
+  mask-image: var(--mask-gradient);
+  -webkit-mask-image: var(--mask-gradient);
 }
