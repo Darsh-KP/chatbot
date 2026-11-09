@@ -35,10 +35,12 @@ SELECT = """
 """
 
 SELECT_CHATS = """
-    SELECT chats.chat_id, title
-    FROM chats
-    JOIN titles ON titles.chat_id = chats.chat_id
-    ORDER BY created_at DESC;
+    SELECT titles.chat_id, titles.title
+    FROM titles
+    LEFT JOIN chats
+        ON titles.chat_id = chats.chat_id
+    GROUP BY titles.chat_id, titles.title
+    ORDER BY MAX(chats.created_at) DESC;
 """
 
 INSERT_TITLE = """
@@ -51,7 +53,7 @@ INSERT_MSG = """
 """
 
 DELETE = """
-    DELETE FROM chats WHERE chat_id = ?;
+    DELETE FROM titles WHERE chat_id = ?;
 """
 
 UPDATE_TITLE = """
@@ -95,8 +97,10 @@ def add_msg_to_chat(chat_id: int, role: int, msg: str) -> None:
             cursor = conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
             return cursor.rowcount > 0
 
-def delete_chat(chat_id: int) -> None:
+def delete_chat(chat_id: int) -> bool:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+
         with conn:
             cursor = conn.execute(DELETE, (chat_id,))
             return cursor.rowcount > 0
