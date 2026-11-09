@@ -1,7 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { MatMiniFabButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
+import { ThemeService } from '../../shared/theme-service/theme.service';
 
 // this interface would be a DTO (some properties might not be necessary)
 interface ChatThread {
@@ -59,15 +60,14 @@ const THREADS: ChatThread[] = [
   templateUrl: './chat.html',
 })
 export class Chat {
+  // Inject the theme service and read the current theme
+  themeService = inject(ThemeService);
+  protected readonly isDarkTheme = this.themeService.isDarkMode;
+
   protected readonly threads = THREADS;
   protected readonly selectedThread = signal(THREADS[0]);
-  protected readonly isDarkTheme = signal(true);
 
   protected selectThread(thread: ChatThread): void {
     this.selectedThread.set(thread);
-  }
-
-  protected toggleTheme(): void {
-    this.isDarkTheme.update((isDark) => !isDark);
   }
 }

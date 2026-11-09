@@ -1,4 +1,4 @@
-<div class="chat-layout" [class.light-theme]="!isDarkTheme()">
+<div class="chat-layout">
   <aside class="chat-sidebar" aria-label="Chat sidebar">
     <h1 class="text-lg font-semibold">Chats</h1>
     <nav aria-label="Chat threads">
@@ -23,7 +23,7 @@
       class="chat-thread mt-auto"
       [attr.aria-label]="isDarkTheme() ? 'Switch to light theme' : 'Switch to dark theme'"
       [attr.aria-pressed]="!isDarkTheme()"
-      (click)="toggleTheme()"
+      (click)="themeService.toggleTheme()"
     >
       <mat-icon aria-hidden="true">{{ isDarkTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       <span>{{ isDarkTheme() ? 'Light theme' : 'Dark theme' }}</span>
