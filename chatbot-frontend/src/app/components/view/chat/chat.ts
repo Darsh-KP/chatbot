@@ -3,6 +3,8 @@ import { MatMiniFabButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { ThemeService } from '../../shared/theme-service/theme.service';
+import { GifContainer } from '../../shared/gif-container/gif-container';
+import { ResponsePhase } from '../../shared/gif-container/ResponsePhase';
 
 // this interface would be a DTO (some properties might not be necessary)
 interface ChatThread {
@@ -54,7 +56,7 @@ const THREADS: ChatThread[] = [
 ];
 
 @Component({
-  imports: [MatMiniFabButton, MatIcon, CdkTextareaAutosize],
+  imports: [MatMiniFabButton, MatIcon, CdkTextareaAutosize, GifContainer],
   selector: 'app-chat',
   styleUrl: './chat.css',
   templateUrl: './chat.html',
@@ -66,6 +68,9 @@ export class Chat {
 
   protected readonly threads = THREADS;
   protected readonly selectedThread = signal(THREADS[0]);
+
+  //Default animation is greeting
+  protected gifPhase: ResponsePhase = 'greeting';
 
   protected selectThread(thread: ChatThread): void {
     this.selectedThread.set(thread);
