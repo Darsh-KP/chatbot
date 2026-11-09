@@ -7,38 +7,55 @@ from contextlib import closing
 from models.MsgModel import MsgModel
 from models.ChatModel import ChatModel
 
-SCHEMA = """
+TITLES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS titles (
+    chat_id INTEGER PRIMARY KEY,
+    title   TEXT
+);
+"""
+
+MESSAGES_SCHEMA = """
 CREATE TABLE IF NOT EXISTS chats (
     chat_id    INTEGER NOT NULL,
-    seq_num    INTEGER NOT NULL,
+    seq_num    INTEGER NOT NULL CHECK(seq_num >= 0),
     role       INTEGER NOT NULL CHECK (role IN (0, 1)), -- user or system
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     msg        TEXT NOT NULL,
 
-    PRIMARY KEY (chat_id, seq_num)
+    PRIMARY KEY (chat_id, seq_num),
+    FOREIGN KEY (chat_id) REFERENCES titles(chat_id) ON DELETE CASCADE
 ) WITHOUT ROWID;
 """
 
 SELECT = """
-    SELECT chat_id, role, msg
+    SELECT created_at, role, msg
     FROM chats
     WHERE chat_id = ?
     ORDER BY seq_num;
 """
 
 SELECT_CHATS = """
-    SELECT msg
+    SELECT chats.chat_id, title
     FROM chats
-    WHERE chat_id = ? AND seq_num = 0;
+    JOIN titles ON titles.chat_id = chats.chat_id
+    ORDER BY created_at DESC;
 """
 
-INSERT = """
+INSERT_TITLE = """
+    INSERT INTO titles (chat_id, title) VALUES (?, ?);
+"""
+
+INSERT_MSG = """
     INSERT INTO chats (chat_id, seq_num, role, msg)
     VALUES (?, (SELECT COALESCE(MAX(seq_num) + 1, 0) FROM CHATS WHERE chat_id = ?), ?, ?);
 """
 
 DELETE = """
     DELETE FROM chats WHERE chat_id = ?;
+"""
+
+UPDATE_TITLE = """
+    UPDATE titles SET title = ? WHERE chat_id = ?;
 """
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -50,28 +67,42 @@ def init_db() -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")
-        conn.execute(SCHEMA)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute(TITLES_SCHEMA)
+        conn.execute(MESSAGES_SCHEMA)
         conn.commit()
 
 def fetch_chat(chat_id: int) -> list[MsgModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         rows = conn.execute(SELECT, (chat_id,)).fetchall()
             
-    return [MsgModel(chat_id=chat_id, role=role, text=msg) for chat_id, role, msg in rows]
+    return [MsgModel(epoch_seconds=epoch_seconds, role=role, text=msg) for epoch_seconds, role, msg in rows]
 
-def fetch_chat_info(chat_id: int) -> ChatModel:
+def fetch_all_chats() -> list[ChatModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
-        row = conn.execute(SELECT_CHATS, (chat_id,)).fetchone()
-            
-    return ChatModel(first_msg=row[0])
+        rows = conn.execute(SELECT_CHATS).fetchall()    
+        return [ChatModel(chat_id=chat_id, title=title) for chat_id, title in rows]
+
+def new_chat(chat_id: int, msg: str):
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        with conn:
+            conn.execute(INSERT_TITLE, (chat_id, None))
+            conn.execute(INSERT_MSG, (chat_id, None, 0, msg))
 
 def add_msg_to_chat(chat_id: int, role: int, msg: str) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
-            conn.execute(INSERT, (chat_id, None, role, msg))
+            cursor = conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
+            return cursor.rowcount > 0
 
 def delete_chat(chat_id: int) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
-            conn.execute(DELETE, (chat_id,))
-            conn.commit()
+            cursor = conn.execute(DELETE, (chat_id,))
+            return cursor.rowcount > 0
+
+def change_title(chat_id: int, title: str):
+        with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+            with conn:
+                conn.execute(UPDATE, (title, chat_id))
+                conn.commit()
