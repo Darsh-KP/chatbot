@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi import Response
 from secrets import randbits    
 
 from repository import chats_repo
@@ -38,3 +39,12 @@ def get_chat_info(chat_id: int):
 @app.get("/api/chats/{chat_id}/messages", response_model=list[MsgModel])
 def get_messages(chat_id: int):
     return chats_repo.fetch_chat(chat_id)
+
+@app.delete("/api/chats/{chat_id}", status_code=204)
+def delete_chat(chat_id: int):
+    chats_repo.delete_chat(chat_id)
+    return Response(status_code=204)
+
+@app.get("/api/chats")
+def get_chats():
+    return chats_repo.fetch_all_chats()

@@ -32,6 +32,13 @@ SELECT_CHATS = """
     WHERE chat_id = ? AND seq_num = 0;
 """
 
+SELECT_ALL_CHATS = """
+    SELECT chat_id, msg
+    FROM chats
+    WHERE seq_num = 0
+    ORDER BY created_at DESC;
+"""
+
 INSERT = """
     INSERT INTO chats (chat_id, seq_num, role, msg)
     VALUES (?, (SELECT COALESCE(MAX(seq_num) + 1, 0) FROM CHATS WHERE chat_id = ?), ?, ?);
@@ -75,3 +82,12 @@ def delete_chat(chat_id: int) -> None:
         with conn:
             conn.execute(DELETE, (chat_id,))
             conn.commit()
+
+def fetch_all_chats():
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        rows = conn.execute(SELECT_ALL_CHATS).fetchall()
+
+    return [
+        {"chat_id": chat_id, "first_msg": msg}
+        for chat_id, msg in rows
+    ]
