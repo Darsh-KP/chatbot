@@ -1,0 +1,15 @@
+@if (senderType() === 'user') {
+  <!-- User Message -->
+  <div class="max-w-[75%] p-3 rounded-2xl chat-user-message self-end shadow-md">
+    <p class="text-sm font-semibold user-label mb-1">You</p>
+    <div class="text-base leading-relaxed whitespace-pre-wrap">{{ content() }}</div>
+  </div>
+} @else {
+  <!-- AI Message -->
+  <div class="max-w-[75%] p-3 rounded-2xl chat-assistant-message self-start border shadow-md">
+    <p class="text-sm font-semibold chat-assistant-label mb-1">Spring Bean</p>
+    <div class="text-base leading-relaxed">
+      <markdown [data]="content()"></markdown>
+    </div>
+  </div>
+}
