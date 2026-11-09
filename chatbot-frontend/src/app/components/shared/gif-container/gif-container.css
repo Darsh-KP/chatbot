@@ -1,0 +1,14 @@
+/* For desktop devices have container take up 25% of the screen */
+.gif-container {
+  width: 25%;
+}
+.animation-gif{
+  max-width:100%;
+  height:auto;
+}
+/* For mobile devices have container take up 50% of the screen*/
+@media screen and (max-width: 480px) {
+  .gif-container {
+    width: 50%;
+  }
+}
