@@ -1,0 +1,29 @@
+.chat-user-message {
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+.user-label {
+  color: var(--mat-sys-tertiary);
+}
+
+.chat-assistant-message {
+  border-color: var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
+  color: var(--mat-sys-on-surface);
+}
+
+.chat-assistant-label {
+  color: var(--mat-sys-primary);
+}
+
+/*.chat-inline-code,*/
+/*.chat-code-block,*/
+/*.chat-prompt {*/
+/*  background: var(--mat-sys-surface-container);*/
+/*  color: var(--mat-sys-on-surface);*/
+/*}*/
+
+/*.chat-code-block {*/
+/*  margin: 0;*/
+/*}*/
