@@ -3,11 +3,6 @@
   width: 100%;
   height: 100dvh;
   overflow: hidden;
-  color-scheme: dark;
-}
-
-.chat-layout.light-theme {
-  color-scheme: light;
 }
 
 .chat-sidebar {
