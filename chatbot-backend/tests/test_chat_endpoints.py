@@ -36,7 +36,7 @@ def test_get_chats_empty(client):
     response = client.get("/chats")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"chats": []}
 
 
 def test_get_nonexistent_chat(client):
@@ -80,11 +80,9 @@ def test_get_chats_after_creation(client):
 
     assert response.status_code == 200
 
-    chats = response.json()
-
     assert any(
         chat["chat_id"] == chat_id
-        for chat in chats
+        for chat in response.json()["chats"]
     )
 
 
@@ -102,17 +100,19 @@ def test_get_messages_after_creation(client):
 
     assert response.status_code == 200
 
-    messages = response.json()
+    messages = response.json()["messages"]
 
     assert len(messages) >= 1
-    assert messages[0]["text"] == "Hello chatbot"
+    assert messages[0]["message"] == "Hello chatbot"
     assert messages[0]["role"] == 0
 
 
 def test_add_message_to_existing_chat(client):
     create_response = client.post(
         "/chats/new",
-        json={"user_message": "Hello chatbot"}
+        json={
+            "user_message": "Hello chatbot"
+        }
     )
     assert create_response.status_code == 201
 
@@ -121,8 +121,7 @@ def test_add_message_to_existing_chat(client):
     response = client.post(
         f"/chats/{chat_id}",
         json={
-            "role": 0,
-            "text": "What is FastAPI?"
+            "user_message": "What is FastAPI?"
         }
     )
 
@@ -131,11 +130,11 @@ def test_add_message_to_existing_chat(client):
     messages_response = client.get(f"/chats/{chat_id}")
     assert messages_response.status_code == 200
 
-    messages = messages_response.json()
+    messages = messages_response.json()["messages"]
 
     assert len(messages) == 2
-    assert messages[0]["text"] == "Hello chatbot"
-    assert messages[1]["text"] == "What is FastAPI?"
+    assert messages[0]["message"] == "Hello chatbot"
+    assert messages[1]["message"] == "What is FastAPI?"
 
 
 def test_delete_existing_chat(client):
@@ -157,7 +156,7 @@ def test_delete_existing_chat(client):
     chats_response = client.get("/chats")
     assert all(
         chat["chat_id"] != chat_id
-        for chat in chats_response.json()
+        for chat in chats_response.json()["chats"]
     )
 
 
@@ -172,17 +171,18 @@ def test_chat_list_has_no_duplicates(client):
 
     response = client.post(
         f"/chats/{chat_id}",
-        json={"role": 0, "text": "Second message"}
+        json={"user_message": "Second message"}
     )
     assert response.status_code == 201
 
     response = client.get("/chats")
     assert response.status_code == 200
 
-    matching_chats = [
-        chat for chat in response.json()
-        if chat["chat_id"] == chat_id
-    ]
+    matching_chats = []
+
+    for chat in response.json()["chats"]:
+        if chat["chat_id"] == chat_id:
+            matching_chats.append(chat)
 
     assert len(matching_chats) == 1
 
