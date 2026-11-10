@@ -65,7 +65,7 @@
         </div>
       } @else {
         <!-- Loop through your messages signal -->
-        @for (msg of messages(); track msg.epoch_seconds) {
+        @for (msg of messages(); track msg.seq_num) {
           <app-chat-message
             [senderType]="msg.role"
             [content]="msg.message"

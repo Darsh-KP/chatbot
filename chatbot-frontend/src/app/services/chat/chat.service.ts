@@ -37,7 +37,7 @@ export class ChatService {
     const nowInSeconds = Math.floor(Date.now() / 1000);
 
     // Dynamic mock dictionaries grouped by string chat_id keys
-    const mockDb: Record<string, MessageResponseDTO[]> = {
+    const mockDb: Record<string, Omit<MessageResponseDTO, 'seq_num'>[]> = {
       '101': [
         {
           role: 0,
@@ -159,7 +159,7 @@ This conversation string loaded without precision truncation or float rounding i
       ],
     };
 
-    const defaultMessages: MessageResponseDTO[] = [
+    const defaultMessages: Omit<MessageResponseDTO, 'seq_num'>[] = [
       {
         role: 1,
         message: `### Dynamic Workspace Init
@@ -175,7 +175,12 @@ How can I help you build or refine your application today?`,
     ];
 
     const responsePayload: AllChatMessagesResponseDTO = {
-      messages: mockDb[chat_id] || defaultMessages,
+      messages: (mockDb[chat_id] || defaultMessages).map((msg, idx) => ({
+        role: msg.role,
+        message: msg.message,
+        epoch_seconds: msg.epoch_seconds,
+        seq_num: idx,
+      })),
     };
 
     return of(responsePayload);
