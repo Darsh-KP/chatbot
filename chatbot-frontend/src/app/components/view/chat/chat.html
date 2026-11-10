@@ -3,18 +3,37 @@
     <h1 class="text-lg font-semibold">Chats</h1>
     <nav aria-label="Chat threads">
       <ul class="flex flex-col gap-1">
-        @for (thread of threads; track thread.id) {
-          <li>
-            <button
-              type="button"
-              class="chat-thread"
-              [class.chat-thread-selected]="selectedThread().id === thread.id"
-              [attr.aria-current]="selectedThread().id === thread.id ? 'page' : null"
-              (click)="selectThread(thread)"
-            >
-              {{ thread.title }}
-            </button>
-          </li>
+        <li>
+          <a
+            routerLink="/chats/new"
+            routerLinkActive="chat-thread-selected"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="chat-thread"
+          >
+            <mat-icon>new_window</mat-icon>
+            New chat...
+          </a>
+        </li>
+
+        <!-- Fetch and load all the recent chats -->
+        @if (chatsMetadata$ | async; as response) {
+          @for (chat of response.chats; track chat.chat_id) {
+            <li>
+              <a
+                [routerLink]="['/chats', chat.chat_id]"
+                routerLinkActive="chat-thread-selected"
+                [routerLinkActiveOptions]="{ exact: true }"
+                class="chat-thread"
+              >
+                {{ chat.title }}
+              </a>
+            </li>
+          }
+        } @else {
+          <div class="mt-3 flex items-center gap-2">
+            <mat-spinner diameter="24"></mat-spinner>
+            <span>Loading your conversations...</span>
+          </div>
         }
       </ul>
     </nav>
@@ -32,30 +51,26 @@
 
   <div class="chat-pane flex flex-col h-screen mx-auto border-x chat-divider chat-surface">
     <!-- Scrollable Message Area -->
-    <main class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col
+    <main class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col gap-4
                  scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400">
-      <!-- User Message -->
-      <div class="max-w-[75%] p-3 rounded-2xl chat-user-message self-end shadow-md">
-        <p class="text-sm font-semibold user-label mb-1">You</p>
-        <div class="text-base leading-relaxed">{{ selectedThread().question }}</div>
-      </div>
-
-      <!-- AI Message -->
-      <div class="max-w-[75%] p-3 rounded-2xl chat-assistant-message self-start border shadow-md">
-        <p class="text-sm font-semibold chat-assistant-label mb-1">Spring Bean</p>
-        <div class="text-base leading-relaxed space-y-2">
-          <p>{{ selectedThread().answerIntro }}@if (selectedThread().answerCodeLabel) {<code class="chat-inline-code px-1 py-0.5 rounded">{{ selectedThread().answerCodeLabel }}</code>}{{ selectedThread().answerAfterCode }}</p>
-          @if (selectedThread().answerCode) {
-            <pre class="chat-code-block p-2 rounded text-sm overflow-x-auto">{{ selectedThread().answerCode }}</pre>
-          }
-          @if (selectedThread().answerDetail) {
-            <p>{{ selectedThread().answerDetail }}</p>
-          }
+      @if (!chat_id() || chat_id() === 'new') {
+        <!-- Start a new chat -->
+        <div class="flex flex-col items-center justify-center my-auto text-center">
+          <app-gif-container [phase]="gifPhase"></app-gif-container>
+          <h2 class="text-2xl font-bold">Start a new conversation</h2>
+          <p class="text-gray-500 mt-2 max-w-sm">
+            Type a message below or select an existing thread from your history to begin.
+          </p>
         </div>
-      </div>
-
-      <app-gif-container [phase]="gifPhase"></app-gif-container>
-
+      } @else {
+        <!-- Loop through your messages signal -->
+        @for (msg of messages(); track msg.epoch_seconds) {
+          <app-chat-message
+            [senderType]="msg.role"
+            [content]="msg.message"
+          />
+        }
+      }
     </main>
 
     <!-- Bottom Fixed Interface Form Panel -->

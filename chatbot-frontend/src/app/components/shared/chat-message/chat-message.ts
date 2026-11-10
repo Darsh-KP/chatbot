@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ViewEncapsulation } from '@angular/core';
 import { MessageSenderType, transformSender } from './MessageSenderType';
 import { MarkdownComponent } from 'ngx-markdown';
 
@@ -10,11 +10,12 @@ import { MarkdownComponent } from 'ngx-markdown';
   host: {
     style: 'display: contents;',
   },
+  encapsulation: ViewEncapsulation.None,
 })
 export class ChatMessage {
   // Get inputs for message type and content
   senderType = input.required<MessageSenderType, number | string | MessageSenderType>({
-    transform: transformSender
+    transform: transformSender,
   });
   content = input.required<string>();
 }

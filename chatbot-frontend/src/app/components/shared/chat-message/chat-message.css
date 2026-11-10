@@ -17,13 +17,93 @@
   color: var(--mat-sys-primary);
 }
 
-/*.chat-inline-code,*/
-/*.chat-code-block,*/
-/*.chat-prompt {*/
-/*  background: var(--mat-sys-surface-container);*/
-/*  color: var(--mat-sys-on-surface);*/
-/*}*/
+/* Preformatted Code Blocks (```typescript ... ```) */
+.chat-assistant-message pre {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+}
 
-/*.chat-code-block {*/
-/*  margin: 0;*/
-/*}*/
+/* Ensure code tags inherit correctly within block containers */
+.chat-assistant-message pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Inline Code Highlights (`like_this`) */
+.chat-assistant-message code {
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-primary);
+}
+
+/* Typography Headers (### Title) */
+.chat-assistant-message h1,
+.chat-assistant-message h2,
+.chat-assistant-message h3,
+.chat-assistant-message h4 {
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.chat-assistant-message h1 { font-size: 1.5rem; }
+.chat-assistant-message h2 { font-size: 1.25rem; }
+.chat-assistant-message h3 { font-size: 1.125rem; }
+.chat-assistant-message h4 { font-size: 1rem; }
+
+/* Remove top margin on the absolute first element inside the bubble */
+.chat-assistant-message > div > *:first-child,
+.chat-assistant-message markdown > *:first-child {
+  margin-top: 0;
+}
+
+/* Lists (* Bullet Points) */
+.chat-assistant-message ul,
+.chat-assistant-message ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.chat-assistant-message ul {
+  list-style-type: disc;
+}
+
+.chat-assistant-message ol {
+  list-style-type: decimal;
+}
+
+.chat-assistant-message li {
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+/* Basic Layout Elements (Paragraph gaps and links) */
+.chat-assistant-message p {
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+.chat-assistant-message a {
+  color: var(--mat-sys-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-assistant-message a:hover {
+  color: var(--mat-sys-tertiary);
+}
