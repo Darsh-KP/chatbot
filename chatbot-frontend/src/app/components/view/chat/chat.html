@@ -1,5 +1,6 @@
 <div class="chat-layout">
-  <aside class="chat-sidebar" aria-label="Chat sidebar">
+  <aside class="chat-sidebar overflow-y-auto
+                 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400" aria-label="Chat sidebar">
     <h1 class="text-lg font-semibold">Chats</h1>
     <nav aria-label="Chat threads">
       <ul class="flex flex-col gap-1">
@@ -79,6 +80,7 @@
           <!-- User prompt input -->
           <div class="flex w-full fade-mask-container">
             <textarea
+              [formControl]="userInputControl"
               cdkTextareaAutosize
               #autosize="cdkTextareaAutosize"
               cdkAutosizeMinRows="1"
@@ -86,6 +88,7 @@
               placeholder="Ask anything about Spring..."
               class="flex-1 bg-transparent border-none outline-none resize-none focus:ring-0 m-2
                    scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400"
+              (keydown.enter)="$event.preventDefault(); submitUserMessage()"
             ></textarea>
           </div>
 
@@ -95,6 +98,8 @@
             color="mat-primary"
             aria-label="Submit Question"
             class="self-end mb-0.5"
+            (click)="submitUserMessage()"
+            [disabled]="userInputControl.invalid || !userInputControl.value?.trim()"
           >
             <mat-icon>send</mat-icon>
           </button>
