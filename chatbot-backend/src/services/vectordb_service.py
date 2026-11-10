@@ -7,6 +7,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from models.ChunkModel import ChunkModel
 from exceptions import FailedToReadTagException
+from config import settings
 import re
 
 # -----------------------------------------------------------------
@@ -39,7 +40,7 @@ VECTOR_STORE: dict[str, Chroma] = {}
 
 # ----------------------- Embedding Model ---------------------------
 
-EMBEDDING_MODEL = OllamaEmbeddings(model="nomic-embed-text")
+EMBEDDING_MODEL = OllamaEmbeddings(model="nomic-embed-text", base_url=settings.ollama_base_url)
 
 # ----------------------- Collection Functions ------------------------
 
