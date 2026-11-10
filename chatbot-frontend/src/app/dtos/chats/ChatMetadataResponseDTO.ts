@@ -1,4 +1,4 @@
 export interface ChatMetadataResponseDTO {
-  chat_id: number;
+  chat_id: string;
   title: string;
 }
