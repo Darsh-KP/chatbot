@@ -35,7 +35,7 @@ app.add_middleware(
 
 @app.post("/chats/new")
 def new_chat(user_message: Annotated[str, Body(embed=True)]):
-    chat_id = randbits(63)
+    chat_id = randbits(32)
     chats_repo.new_chat(chat_id, user_message)
 
     # Unimplemented
