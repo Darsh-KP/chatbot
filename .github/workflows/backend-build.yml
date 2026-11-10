@@ -1,0 +1,32 @@
+name: Backend Staging build
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build:
+    name: Build FastAPI Container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./chatbot-backend
+          file: ./chatbot-backend/Dockerfile
+          push: false
+          tags: class-project-api:staging
