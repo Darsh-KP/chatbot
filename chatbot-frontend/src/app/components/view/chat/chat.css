@@ -42,6 +42,75 @@
   cursor: pointer;
 }
 
+.chat-thread-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.chat-thread-item .chat-thread-link {
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-thread-title {
+  overflow-wrap: anywhere;
+}
+
+.chat-delete-button {
+  display: inline-flex;
+  position: absolute;
+  inset: 0 0.25rem 0 auto;
+  margin-block: auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mat-sys-corner-small);
+  background: transparent;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-thread-item:hover .chat-delete-button,
+.chat-delete-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chat-thread-item:hover .chat-thread-link,
+.chat-thread-link:has(+ .chat-delete-button:focus-visible) {
+  padding-right: 3rem;
+}
+
+.chat-thread-item:hover .chat-thread-title,
+.chat-thread-link:has(+ .chat-delete-button:focus-visible) .chat-thread-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-delete-button:hover:not(:disabled) {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.chat-delete-button:focus-visible {
+  outline: 3px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+.chat-delete-error {
+  margin: 0;
+  color: var(--mat-sys-error);
+}
+
 .chat-thread:hover {
   background: var(--mat-sys-surface-container-high);
 }
@@ -119,7 +188,7 @@
 }
 
 @media (max-width: 640px) {
-  /* Switch to a horizontal thread strip on narrow screens so chat history stays reachable. */
+  /* Keep chat history reachable on narrow screens. */
   .chat-layout {
     height: auto;
     min-height: 100dvh;
@@ -139,12 +208,22 @@
     overflow-x: auto;
   }
 
-  .chat-sidebar nav li {
+  .chat-sidebar nav li + li {
     flex: 0 0 auto;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--mat-sys-outline-variant);
   }
 
-  .chat-sidebar nav .chat-thread {
+  .chat-sidebar nav .chat-thread-item .chat-thread-link {
     width: auto;
+    padding-right: 0.75rem;
+  }
+
+  .chat-sidebar nav .chat-delete-button {
+    position: static;
+    flex: 0 0 2.5rem;
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .chat-pane {

@@ -3,6 +3,11 @@
                  scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400" aria-label="Chat sidebar">
     <h1 class="text-lg font-semibold">Chats</h1>
     <nav aria-label="Chat threads">
+      <!-- Temporarily putting the error here -->
+      @if (deleteError(); as error) {
+        <p class="chat-delete-error" role="alert">{{ error }}</p>
+      }
+
       <ul class="flex flex-col gap-1">
         <li>
           <a
@@ -17,17 +22,28 @@
         </li>
 
         <!-- Fetch and load all the recent chats -->
-        @if (chatsMetadata$ | async; as response) {
+        @if (visibleChatsMetadata(); as response) {
           @for (chat of response.chats; track chat.chat_id) {
-            <li>
+            <li class="chat-thread-item">
               <a
                 [routerLink]="['/chats', chat.chat_id]"
                 routerLinkActive="chat-thread-selected"
                 [routerLinkActiveOptions]="{ exact: true }"
-                class="chat-thread"
+                class="chat-thread chat-thread-link"
               >
-                {{ chat.title }}
+                <span class="chat-thread-title">{{ chat.title }}</span>
               </a>
+              <!-- Adding a button to delete the chat with a trash can icon -->
+              <button
+                type="button"
+                class="chat-delete-button"
+                [attr.aria-label]="'Delete ' + chat.title"
+                [disabled]="deletingChatIds().has(chat.chat_id)"
+                [attr.aria-busy]="deletingChatIds().has(chat.chat_id)"
+                (click)="deleteChat(chat.chat_id)"
+              >
+                <mat-icon aria-hidden="true">delete</mat-icon>
+              </button>
             </li>
           }
         } @else {
