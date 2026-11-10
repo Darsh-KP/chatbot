@@ -13,8 +13,8 @@ COPY src/ ./src/
 # Copy LLM's Knowledge corpus into container
 COPY data/ ./data/
 
-# Copy DB Folder into container
-COPY db/ ./db/
+# Create directory for database
+RUN mkdir -p /app/db
 
 # Expose port for application to run
 EXPOSE 8000
