@@ -75,7 +75,7 @@ async def _save_exchange(chat_id: int, user_text: str, system_text: str) -> None
 @app.post("/chats/new", status_code=201)
 async def new_chat(user_message: UserMessage):
     system_message = await _answer(user_message)
-    chat_id = randbits(52) # 52-bit ID to avoid JavaScript integer precision issues
+    chat_id = randbits(32) 
     await _save_new_chat(chat_id, user_message, system_message)
     return {"chat_id": chat_id, "system_message": system_message}
 
