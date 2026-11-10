@@ -1,9 +1,12 @@
 import {inject, Service} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
-import {catchError, delay, Observable, of} from 'rxjs';
+import {Observable, of} from 'rxjs';
 import {AllChatsMetadataResponseDTO} from '../../dtos/chats/AllChatsMetadataResponseDTO';
 import { AllChatMessagesResponseDTO } from '../../dtos/chats/AllChatMessagesResponseDTO';
 import { MessageResponseDTO } from '../../dtos/chats/MessageResponseDTO';
+import { UserMessageRequestDTO } from '../../dtos/chats/UserMessageRequestDTO';
+import { NewChatSystemMessageResponseDTO } from '../../dtos/chats/NewChatSystemMessageResponseDTO';
+import { SystemMessageResponseDTO } from '../../dtos/chats/SystemMessageResponseDTO';
 
 @Service()
 export class ChatService {
@@ -176,5 +179,24 @@ How can I help you build or refine your application today?`,
     };
 
     return of(responsePayload);
+  }
+
+  postFirstChatMessage(
+    userMessageRequestDTO: UserMessageRequestDTO
+  ): Observable<NewChatSystemMessageResponseDTO> {
+    return this.http.post<NewChatSystemMessageResponseDTO>(`${this.BASE_URL}/new`, userMessageRequestDTO);
+  }
+
+  postChatMessage(
+    chat_id: string,
+    userMessageRequestDTO: UserMessageRequestDTO
+  ): Observable<SystemMessageResponseDTO>{
+    return this.http.post<SystemMessageResponseDTO>(`${this.BASE_URL}/${chat_id}`, userMessageRequestDTO);
+  }
+
+  deleteChat(
+    chat_id: string
+  ): Observable<any> {
+    return this.http.delete(`${this.BASE_URL}/${chat_id}`);
   }
 }
