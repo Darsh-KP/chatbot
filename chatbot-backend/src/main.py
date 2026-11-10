@@ -18,10 +18,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-@app.post("/ingest")
-def ingest_data():
-    chunks_ingested = ingest_adoc_directory("spring-docs")
-    return {"collection": "spring-docs", "chunks_ingested": chunks_ingested}
 origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200"
@@ -35,6 +31,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.post("/ingest")
+def ingest_data():
+    chunks_ingested = ingest_adoc_directory("spring-docs")
+    return {"collection": "spring-docs", "chunks_ingested": chunks_ingested}
 
 @app.post("/chats/new")
 def new_chat(user_message: Annotated[str, Body(embed=True)]):
