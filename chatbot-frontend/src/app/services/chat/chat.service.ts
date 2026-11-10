@@ -201,7 +201,7 @@ How can I help you build or refine your application today?`,
 
   deleteChat(
     chat_id: string
-  ): Observable<any> {
-    return this.http.delete(`${this.BASE_URL}/${chat_id}`);
+  ): Observable<void> {
+    return this.http.delete<void>(`${this.BASE_URL}/${chat_id}`);
   }
 }
