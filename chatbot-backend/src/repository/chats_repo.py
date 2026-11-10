@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS chats (
 """
 
 SELECT = """
-    SELECT created_at, role, msg
+    SELECT created_at, role, msg, seq_num
     FROM chats
     WHERE chat_id = ?
     ORDER BY seq_num;
@@ -76,22 +76,21 @@ def init_db() -> None:
 
 def fetch_chat(chat_id: int) -> list[MsgModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
-        rows = conn.execute(SELECT, (chat_id,)).fetchall()
-            
-    return [MsgModel(epoch_seconds=epoch_seconds, role=role, text=msg) for epoch_seconds, role, msg in rows]
+        rows = conn.execute(SELECT, (chat_id,)).fetchall()    
+        return [MsgModel(epoch_seconds=epoch_seconds, role=role, message=msg, seq_num=seq_num) for epoch_seconds, role, msg, seq_num in rows]
 
 def fetch_all_chats() -> list[ChatModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         rows = conn.execute(SELECT_CHATS).fetchall()    
         return [ChatModel(chat_id=chat_id, title=title) for chat_id, title in rows]
 
-def new_chat(chat_id: int, msg: str):
+def new_chat(chat_id: int, msg: str) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
             conn.execute(INSERT_TITLE, (chat_id, None))
             conn.execute(INSERT_MSG, (chat_id, None, 0, msg))
 
-def add_msg_to_chat(chat_id: int, role: int, msg: str) -> None:
+def add_msg_to_chat(chat_id: int, role: int, msg: str) -> bool:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
             cursor = conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
