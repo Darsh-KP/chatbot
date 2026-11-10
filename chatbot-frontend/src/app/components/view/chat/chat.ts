@@ -11,6 +11,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MessageResponseDTO } from '../../../dtos/chats/MessageResponseDTO';
 import { ChatMessage } from '../../shared/chat-message/chat-message';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
 @Component({
   imports: [
@@ -23,6 +24,7 @@ import { MatProgressSpinner } from '@angular/material/progress-spinner';
     RouterLinkActive,
     ChatMessage,
     MatProgressSpinner,
+    ReactiveFormsModule,
   ],
   selector: 'app-chat',
   styleUrl: './chat.css',
@@ -47,7 +49,7 @@ export class Chat {
     effect(() => {
       const currentId = this.chat_id();
 
-      console.log(currentId);
+      console.log("current chat: " + currentId);
 
       if (currentId && currentId !== 'new') {
         // State A: We have a real chat ID -> Fetch history
@@ -66,4 +68,56 @@ export class Chat {
 
   // Get all the chats' metadata
   chatsMetadata$ = this.chatService.getAllChatsMetadata();
+
+  // Get the user input control
+  readonly userInputControl = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.required],
+  });
+
+  // Handle sending user message
+  submitUserMessage(): void {
+    const userMessage = this.userInputControl.value.trim();
+
+    if (!userMessage) {
+      return;
+    }
+
+    console.log("user message: " + userMessage);
+
+    const chatId = this.chat_id();
+
+    if (chatId) {
+      this.chatService
+        .postChatMessage(chatId, {
+          user_message: userMessage
+        })
+        .subscribe({
+          next: (response) => {
+            console.log(response);
+          },
+
+          error: (error) => {
+            console.log(error);
+          }
+        })
+      ;
+    } else {
+      this.chatService
+        .postFirstChatMessage({
+          user_message: userMessage
+        })
+        .subscribe({
+          next: (response) => {
+            console.log(response);
+          },
+
+          error: (error) => {
+            console.log(error);
+          }
+        })
+    }
+
+    this.userInputControl.reset();
+  }
 }
