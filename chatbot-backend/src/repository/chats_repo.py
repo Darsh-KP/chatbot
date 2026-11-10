@@ -49,6 +49,9 @@ INSERT_MSG = """
     INSERT INTO chats (chat_id, seq_num, role, msg)
     VALUES (?, (SELECT COALESCE(MAX(seq_num) + 1, 0) FROM CHATS WHERE chat_id = ?), ?, ?);
 """
+EXISTS = """
+    SELECT 1 FROM chats WHERE chat_id = ? LIMIT 1;
+"""
 
 DELETE = """
     DELETE FROM chats WHERE chat_id = ?;
@@ -94,6 +97,31 @@ def add_msg_to_chat(chat_id: int, role: int, msg: str) -> None:
         with conn:
             cursor = conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
             return cursor.rowcount > 0
+def chat_exists(chat_id: int) -> bool:
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        return conn.execute(EXISTS, (chat_id,)).fetchone() is not None
+
+def add_msgs_to_chat(chat_id: int, msgs: list[tuple[int, str]]) -> bool:
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        conn.execute("BEGIN IMMEDIATE")  # take the write lock before checking
+        try:
+            if conn.execute(EXISTS, (chat_id,)).fetchone() is None:
+                conn.rollback()
+                return False
+            for role, msg in msgs:
+                conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
+            conn.commit()
+            return True
+        except Exception:
+            conn.rollback()
+            raise
+
+def create_chat(chat_id: int, msgs: list[tuple[int, str]]) -> None:
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        with conn:  # commits if the block succeeds, rolls back if anything raises
+            conn.execute(INSERT_TITLE, (chat_id, None))
+            for role, msg in msgs:
+                conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
 
 def delete_chat(chat_id: int) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:

@@ -5,34 +5,73 @@ from secrets import randbits
 from typing import Annotated
 
 from repository import chats_repo
+import asyncio
+import logging
 
+from fastapi import Body, FastAPI, HTTPException, Path, Response
+from pydantic import StringConstraints
+from services.rag_service import answer_question
 from models.ChatModel import ChatModel
 from models.MsgModel import MsgModel
+
+LOGGER = logging.getLogger(__name__)
+
+USER_ROLE, SYSTEM_ROLE = 0, 1  
+SQLITE_MAX_INT = 2**63 - 1
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     chats_repo.init_db()
     yield
 
+
+UserMessage = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1), Body(embed=True)]
 app = FastAPI(lifespan=lifespan)
 
-@app.post("/chats/new")
-def new_chat(user_message: Annotated[str, Body(embed=True)]):
-    chat_id = randbits(63)
-    chats_repo.new_chat(chat_id, user_message)
+async def _answer(question: str) -> str:
+    try:
+        return (await answer_question(question))["answer"]
+    except Exception:
+        LOGGER.exception("Failed to answer question")  # real cause goes to the server log only
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
-    # Unimplemented
-    return JSONResponse(content={"chat_id": chat_id, "system_message": None}, status_code=201)
 
-@app.post("/chats/{chat_id}")
-def add_msg(chat_id: int, msg: MsgModel):
-    added_row = chats_repo.add_msg_to_chat(chat_id, msg.role, msg.text)
+async def _save_new_chat(chat_id: int, user_text: str, system_text: str) -> None:
+    msgs = [(USER_ROLE, user_text), (SYSTEM_ROLE, system_text)]
+    try:
+        # One transaction: title + both messages are stored, or nothing is.
+        await asyncio.to_thread(chats_repo.create_chat, chat_id, msgs)
+    except Exception:
+        LOGGER.exception("Failed to save new chat")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
-    # Unimplemented; the system needs to produce this
-    if added_row == True: 
-        return JSONResponse(content=MsgModel(epoch_seconds=None, role=1, text="").model_dump(mode="json"), status_code=201)
-    else:
-        return Response(status_code=404)
+
+async def _save_exchange(chat_id: int, user_text: str, system_text: str) -> None:
+    msgs = [(USER_ROLE, user_text), (SYSTEM_ROLE, system_text)]
+    try:
+        saved = await asyncio.to_thread(chats_repo.add_msgs_to_chat, chat_id, msgs)
+    except Exception:
+        LOGGER.exception("Failed to save messages")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+    if not saved:
+        raise HTTPException(status_code=404, detail="The chat does not exist")
+
+
+@app.post("/chats/new", status_code=201)
+async def new_chat(user_message: UserMessage):
+    system_message = await _answer(user_message)
+    chat_id = randbits(52) # 52-bit ID to avoid JavaScript integer precision issues
+    await _save_new_chat(chat_id, user_message, system_message)
+    return {"chat_id": chat_id, "system_message": system_message}
+
+
+@app.post("/chats/{chat_id}", status_code=201)
+async def add_msg(chat_id: Annotated[int, Path(ge=0, le=SQLITE_MAX_INT)], user_message: UserMessage):
+    if not await asyncio.to_thread(chats_repo.chat_exists, chat_id):
+        raise HTTPException(status_code=404, detail="The chat does not exist")
+    system_message = await _answer(user_message)
+    await _save_exchange(chat_id, user_message, system_message)
+    return {"system_message": system_message}
 
 # Get all chat IDs
 @app.get("/chats")
