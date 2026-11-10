@@ -7,6 +7,9 @@ import { MarkdownComponent } from 'ngx-markdown';
   selector: 'app-chat-message',
   styleUrl: './chat-message.css',
   templateUrl: './chat-message.html',
+  host: {
+    style: 'display: contents;',
+  },
 })
 export class ChatMessage {
   // Get inputs for message type and content
