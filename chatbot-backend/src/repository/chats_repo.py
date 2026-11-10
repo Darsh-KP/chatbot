@@ -28,17 +28,19 @@ CREATE TABLE IF NOT EXISTS chats (
 """
 
 SELECT = """
-    SELECT created_at, role, msg
+    SELECT created_at, role, msg, seq_num
     FROM chats
     WHERE chat_id = ?
     ORDER BY seq_num;
 """
 
 SELECT_CHATS = """
-    SELECT chats.chat_id, title
-    FROM chats
-    JOIN titles ON titles.chat_id = chats.chat_id
-    ORDER BY created_at DESC;
+    SELECT titles.chat_id, titles.title
+    FROM titles
+    LEFT JOIN chats
+        ON titles.chat_id = chats.chat_id
+    GROUP BY titles.chat_id, titles.title
+    ORDER BY MAX(chats.created_at) DESC;
 """
 
 INSERT_TITLE = """
@@ -54,7 +56,7 @@ EXISTS = """
 """
 
 DELETE = """
-    DELETE FROM chats WHERE chat_id = ?;
+    DELETE FROM titles WHERE chat_id = ?;
 """
 
 UPDATE_TITLE = """
@@ -77,22 +79,21 @@ def init_db() -> None:
 
 def fetch_chat(chat_id: int) -> list[MsgModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
-        rows = conn.execute(SELECT, (chat_id,)).fetchall()
-            
-    return [MsgModel(epoch_seconds=epoch_seconds, role=role, text=msg) for epoch_seconds, role, msg in rows]
+        rows = conn.execute(SELECT, (chat_id,)).fetchall()    
+        return [MsgModel(epoch_seconds=epoch_seconds, role=role, message=msg, seq_num=seq_num) for epoch_seconds, role, msg, seq_num in rows]
 
 def fetch_all_chats() -> list[ChatModel]:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         rows = conn.execute(SELECT_CHATS).fetchall()    
         return [ChatModel(chat_id=chat_id, title=title) for chat_id, title in rows]
 
-def new_chat(chat_id: int, msg: str):
+def new_chat(chat_id: int, msg: str) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
             conn.execute(INSERT_TITLE, (chat_id, None))
             conn.execute(INSERT_MSG, (chat_id, None, 0, msg))
 
-def add_msg_to_chat(chat_id: int, role: int, msg: str) -> None:
+def add_msg_to_chat(chat_id: int, role: int, msg: str) -> bool:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
         with conn:
             cursor = conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
@@ -123,8 +124,10 @@ def create_chat(chat_id: int, msgs: list[tuple[int, str]]) -> None:
             for role, msg in msgs:
                 conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
 
-def delete_chat(chat_id: int) -> None:
+def delete_chat(chat_id: int) -> bool:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+
         with conn:
             cursor = conn.execute(DELETE, (chat_id,))
             return cursor.rowcount > 0

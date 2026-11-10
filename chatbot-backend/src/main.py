@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Body, Response
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from secrets import randbits
 from typing import Annotated
 
@@ -12,21 +12,36 @@ from fastapi import Body, FastAPI, HTTPException, Path, Response
 from pydantic import StringConstraints
 from services.rag_service import answer_question
 from models.ChatModel import ChatModel
+from models.ChatListModel import ChatListModel
 from models.MsgModel import MsgModel
+from models.MsgListModel import MsgListModel
 
 LOGGER = logging.getLogger(__name__)
 
 USER_ROLE, SYSTEM_ROLE = 0, 1  
 SQLITE_MAX_INT = 2**63 - 1
+UserMessage = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1), Body(embed=True)]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     chats_repo.init_db()
     yield
 
-
-UserMessage = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1), Body(embed=True)]
 app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200"
+]
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 async def _answer(question: str) -> str:
     try:
@@ -73,17 +88,17 @@ async def add_msg(chat_id: Annotated[int, Path(ge=0, le=SQLITE_MAX_INT)], user_m
     await _save_exchange(chat_id, user_message, system_message)
     return {"system_message": system_message}
 
-# Get all chat IDs
+# Get all chats, including titles
 @app.get("/chats")
 def get_chat_info():
-    return chats_repo.fetch_all_chats()
+    return ChatListModel(chats=chats_repo.fetch_all_chats())
 
 # Get all messages stored within a chat
-@app.get("/chats/{chat_id}", response_model=list[MsgModel])
+@app.get("/chats/{chat_id}")
 def get_messages(chat_id: int):
     output = chats_repo.fetch_chat(chat_id)
     if len(output) == 0: return Response(status_code=404)
-    else: return output
+    else: return MsgListModel(messages=output)
 
 @app.delete("/chats/{chat_id}")
 def delete_chat(chat_id: int):
