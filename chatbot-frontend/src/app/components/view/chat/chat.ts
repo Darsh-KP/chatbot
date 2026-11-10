@@ -1,78 +1,69 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, input, signal } from '@angular/core';
 import { MatMiniFabButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { ThemeService } from '../../shared/theme-service/theme.service';
 import { GifContainer } from '../../shared/gif-container/gif-container';
 import { ResponsePhase } from '../../shared/gif-container/ResponsePhase';
-
-// this interface would be a DTO (some properties might not be necessary)
-interface ChatThread {
-  id: string;
-  title: string;
-  question: string;
-  answerIntro: string;
-  answerCodeLabel?: string;
-  answerAfterCode?: string;
-  answerCode?: string;
-  answerDetail?: string;
-}
-
-// Keep the initial conversation's original copy while giving the sidebar local sample threads.
-// hardcoded chat threads for visualization -> this would be replaced with a call to the backend
-const THREADS: ChatThread[] = [
-  {
-    id: 'hikari-pool',
-    title: 'Configure HikariCP pool size',
-    question: 'How do I configure a custom connection pool size in Spring Boot using HikariCP?',
-    answerIntro: 'You can configure it directly in your ',
-    answerCodeLabel: 'application.properties',
-    answerAfterCode: ' file:',
-    answerCode: 'spring.datasource.hikari.maximum-pool-size=20',
-    answerDetail:
-      'This sets the maximum number of simultaneous connections allowed in the pool. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
-  },
-  {
-    id: 'rest-api',
-    title: 'Build a REST API',
-    question: 'What is the usual way to build a REST API in Spring Boot?',
-    answerIntro:
-      'Create a controller with @RestController, map routes with request-mapping annotations, and delegate business logic to a service.',
-  },
-  {
-    id: 'dependency-injection',
-    title: 'Dependency injection',
-    question: 'How does dependency injection work in Spring?',
-    answerIntro:
-      'Spring creates and manages application objects as beans, then injects their dependencies through constructors or other supported injection points.',
-  },
-  {
-    id: 'spring-profiles',
-    title: 'Use Spring profiles',
-    question: 'How can I use different Spring profiles for development and production?',
-    answerIntro:
-      'Put environment-specific settings in files such as application-dev.properties and application-prod.properties, then activate the profile you need.',
-  },
-];
+import {ChatService} from '../../../services/chat/chat.service';
+import {AsyncPipe} from '@angular/common';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { MessageResponseDTO } from '../../../dtos/chats/MessageResponseDTO';
+import { ChatMessage } from '../../shared/chat-message/chat-message';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
-  imports: [MatMiniFabButton, MatIcon, CdkTextareaAutosize, GifContainer],
+  imports: [
+    MatMiniFabButton,
+    MatIcon,
+    CdkTextareaAutosize,
+    GifContainer,
+    AsyncPipe,
+    RouterLink,
+    RouterLinkActive,
+    ChatMessage,
+    MatProgressSpinner,
+  ],
   selector: 'app-chat',
   styleUrl: './chat.css',
   templateUrl: './chat.html',
 })
 export class Chat {
+  // Inject required dependencies
+  chatService = inject(ChatService);
+
   // Inject the theme service and read the current theme
   themeService = inject(ThemeService);
   protected readonly isDarkTheme = this.themeService.isDarkMode;
 
-  protected readonly threads = THREADS;
-  protected readonly selectedThread = signal(THREADS[0]);
+  // Track the current chat
+  chat_id = input<string | undefined>();
+
+  // Hold your message state
+  messages = signal<MessageResponseDTO[]>([]);
+
+  constructor() {
+    // Automatically re-run this logic whenever the URL link shifts!
+    effect(() => {
+      const currentId = this.chat_id();
+
+      console.log(currentId);
+
+      if (currentId && currentId !== 'new') {
+        // State A: We have a real chat ID -> Fetch history
+        this.chatService.getAllChatMessages(currentId).subscribe((response) => {
+          this.messages.set(response.messages);
+        });
+      } else {
+        // State B: We are on 'chats/new' -> Clear out the chat bubble window
+        this.messages.set([]);
+      }
+    });
+  }
 
   //Default animation is greeting
   protected gifPhase: ResponsePhase = 'greeting';
 
-  protected selectThread(thread: ChatThread): void {
-    this.selectedThread.set(thread);
-  }
+  // Get all the chats' metadata
+  chatsMetadata$ = this.chatService.getAllChatsMetadata();
 }
