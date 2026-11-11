@@ -1,0 +1,130 @@
+<div class="chat-layout">
+  <aside class="chat-sidebar flex flex-col h-full" aria-label="Chat sidebar">
+    <h1 class="text-lg font-semibold">Chats</h1>
+    <nav aria-label="Chat threads" class="flex-1 flex flex-col min-h-0 gap-1">
+      <!-- Temporarily putting the error here -->
+      @if (deleteError(); as error) {
+        <p class="chat-delete-error" role="alert">{{ error }}</p>
+      }
+
+      <ul class="flex flex-col gap-1">
+        <li>
+          <a
+            routerLink="/chats/new"
+            routerLinkActive="chat-thread-selected"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="chat-thread"
+          >
+            <mat-icon>new_window</mat-icon>
+            New chat...
+          </a>
+        </li>
+      </ul>
+
+      <ul class="flex-1 overflow-y-auto flex flex-col gap-1
+               scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400">
+        <!-- Fetch and load all the recent chats -->
+        @if (visibleChatsMetadata(); as response) {
+          @for (chat of response.chats; track chat.chat_id) {
+            <li class="chat-thread-item">
+              <a
+                [routerLink]="['/chats', chat.chat_id]"
+                routerLinkActive="chat-thread-selected"
+                [routerLinkActiveOptions]="{ exact: true }"
+                class="chat-thread chat-thread-link"
+              >
+                <span class="chat-thread-title">{{ chat.title ?? chat.chat_id }}</span>
+              </a>
+              <!-- Adding a button to delete the chat with a trash can icon -->
+              <button
+                type="button"
+                class="chat-delete-button"
+                [attr.aria-label]="'Delete ' + chat.title"
+                [disabled]="deletingChatIds().has(chat.chat_id)"
+                [attr.aria-busy]="deletingChatIds().has(chat.chat_id)"
+                (click)="deleteChat(chat.chat_id)"
+              >
+                <mat-icon aria-hidden="true">delete</mat-icon>
+              </button>
+            </li>
+          }
+        } @else {
+          <div class="mt-3 flex items-center gap-2">
+            <mat-spinner diameter="24"></mat-spinner>
+            <span>Loading your conversations...</span>
+          </div>
+        }
+      </ul>
+    </nav>
+    <div class="mt-auto">
+      <button
+        type="button"
+        class="chat-thread mt-auto"
+        [attr.aria-label]="isDarkTheme() ? 'Switch to light theme' : 'Switch to dark theme'"
+        [attr.aria-pressed]="!isDarkTheme()"
+        (click)="themeService.toggleTheme()"
+      >
+        <mat-icon aria-hidden="true">{{ isDarkTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        <span>{{ isDarkTheme() ? 'Light theme' : 'Dark theme' }}</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="chat-pane flex flex-col h-screen mx-auto border-x chat-divider chat-surface">
+    <!-- Scrollable Message Area -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col gap-4
+                 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400">
+      @if (messages().length === 0) {
+        <!-- Start a new chat -->
+        <div class="flex flex-col items-center justify-center my-auto text-center">
+          <app-gif-container [phase]="gifPhase"></app-gif-container>
+          <h2 class="text-2xl font-bold">Start a new conversation</h2>
+          <p class="text-gray-500 mt-2 max-w-sm">
+            Type a message below or select an existing thread from your history to begin.
+          </p>
+        </div>
+      } @else {
+        <!-- Loop through your messages signal -->
+        @for (msg of messages(); track msg.seq_num) {
+          <app-chat-message
+            [senderType]="msg.role"
+            [content]="msg.message"
+          />
+        }
+      }
+    </main>
+
+    <!-- Bottom Fixed Interface Form Panel -->
+    <footer class="chat-composer p-4 border-t shadow-md">
+        <div class="chat-prompt flex items-center gap-2 w-full rounded-2xl p-3 text-lg">
+          <!-- User prompt input -->
+          <div class="flex w-full fade-mask-container">
+            <textarea
+              [formControl]="userInputControl"
+              [readonly]="loading()"
+              cdkTextareaAutosize
+              #autosize="cdkTextareaAutosize"
+              cdkAutosizeMinRows="1"
+              cdkAutosizeMaxRows="10"
+              placeholder="Ask anything about Spring..."
+              class="flex-1 bg-transparent border-none outline-none resize-none focus:ring-0 m-2
+                   scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400"
+              (keydown.enter)="$event.preventDefault(); submitUserMessage()"
+            ></textarea>
+          </div>
+
+          <!-- User prompt submit button -->
+          <button
+            mat-mini-fab
+            color="mat-primary"
+            aria-label="Submit Question"
+            class="self-end mb-0.5"
+            (click)="submitUserMessage()"
+            [disabled]="userInputControl.invalid || !userInputControl.value?.trim() || loading()"
+          >
+            <mat-icon>send</mat-icon>
+          </button>
+        </div>
+    </footer>
+  </div>
+</div>
