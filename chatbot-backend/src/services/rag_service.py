@@ -21,8 +21,7 @@ Answer the user's question about Spring clearly and accurately.
 
 How to answer:
 - First work out what the user is really asking. Questions are often casual or use different words \
-than the documentation (for example, "the things that classify a class" usually means annotations \
-or stereotype annotations). Answer the intent, not just the literal words.
+than the documentation. Answer the intent, not just the literal words.
 - Use the documentation excerpts below as your main source, and prefer them whenever they cover the question.
 - If the excerpts only partly cover the question, or not at all, you may answer from your general \
 knowledge of Spring. When you do, say so briefly, for example: "The excerpts don't cover this directly, \
