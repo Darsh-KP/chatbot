@@ -92,3 +92,13 @@ def test_nothing_found_skips_the_model(setup, monkeypatch):
 
     assert result["answer"] == rag_service.NOT_FOUND_MESSAGE
     assert llm.calls == []
+
+def test_empty_search_warns_which_collection_was_searched(setup, monkeypatch, caplog):
+    monkeypatch.setattr(rag_service, "search_collection", lambda collection, query, k: [])
+    monkeypatch.setattr(rag_service.settings, "rag_collection", "spring-docs")
+
+    with caplog.at_level("WARNING"):
+        result = ask()
+
+    assert result["answer"] == rag_service.NOT_FOUND_MESSAGE
+    assert "spring-docs" in caplog.text and "POST /ingest" in caplog.text
