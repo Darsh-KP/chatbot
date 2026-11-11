@@ -1,8 +1,7 @@
 <div class="chat-layout">
-  <aside class="chat-sidebar overflow-y-auto
-                 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400" aria-label="Chat sidebar">
+  <aside class="chat-sidebar flex flex-col h-full" aria-label="Chat sidebar">
     <h1 class="text-lg font-semibold">Chats</h1>
-    <nav aria-label="Chat threads">
+    <nav aria-label="Chat threads" class="flex-1 flex flex-col min-h-0 gap-1">
       <!-- Temporarily putting the error here -->
       @if (deleteError(); as error) {
         <p class="chat-delete-error" role="alert">{{ error }}</p>
@@ -20,7 +19,10 @@
             New chat...
           </a>
         </li>
+      </ul>
 
+      <ul class="flex-1 overflow-y-auto flex flex-col gap-1
+               scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400">
         <!-- Fetch and load all the recent chats -->
         @if (visibleChatsMetadata(); as response) {
           @for (chat of response.chats; track chat.chat_id) {
@@ -54,16 +56,18 @@
         }
       </ul>
     </nav>
-    <button
-      type="button"
-      class="chat-thread mt-auto"
-      [attr.aria-label]="isDarkTheme() ? 'Switch to light theme' : 'Switch to dark theme'"
-      [attr.aria-pressed]="!isDarkTheme()"
-      (click)="themeService.toggleTheme()"
-    >
-      <mat-icon aria-hidden="true">{{ isDarkTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
-      <span>{{ isDarkTheme() ? 'Light theme' : 'Dark theme' }}</span>
-    </button>
+    <div class="mt-auto">
+      <button
+        type="button"
+        class="chat-thread mt-auto"
+        [attr.aria-label]="isDarkTheme() ? 'Switch to light theme' : 'Switch to dark theme'"
+        [attr.aria-pressed]="!isDarkTheme()"
+        (click)="themeService.toggleTheme()"
+      >
+        <mat-icon aria-hidden="true">{{ isDarkTheme() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        <span>{{ isDarkTheme() ? 'Light theme' : 'Dark theme' }}</span>
+      </button>
+    </div>
   </aside>
 
   <div class="chat-pane flex flex-col h-screen mx-auto border-x chat-divider chat-surface">
