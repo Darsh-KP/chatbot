@@ -16,6 +16,7 @@ def build_llm(s: Settings) -> BaseChatModel:
             base_url=s.ollama_base_url,
             temperature=s.llm_temperature,
             num_predict=s.llm_max_tokens,
+            num_ctx=s.llm_num_ctx,
             client_kwargs={"timeout": s.llm_timeout_seconds},
         )
 

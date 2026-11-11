@@ -19,13 +19,16 @@ class Settings(BaseSettings):
     
     llm_provider: Literal["ollama", "fake"] = "ollama"
     llm_model: str = "llama3.2:3b"
-    llm_temperature: float = 0.1  # subject to change
-    llm_max_tokens: int = 512
+    llm_temperature: float = 0.4  # subject to change
+    llm_max_tokens: int = 768
     llm_timeout_seconds: float = 120.0
     ollama_base_url: str = "http://localhost:11434"
     rag_collection: str = "spring_docs"
     rag_top_k: int = 4  
     rag_max_distance: float | None = None
+    rag_rewrite_query: bool = False
+    # config.py
+    llm_num_ctx: int = 4096
 
 
 settings = Settings()
