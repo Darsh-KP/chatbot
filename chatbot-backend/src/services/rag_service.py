@@ -126,3 +126,23 @@ async def answer_question(question: str) -> dict:
         "best_distance": best,
         "retrieved": len(results),
     }
+
+
+async def generate_chat_title(user_message: str) -> str:
+    """Generate a short title from the user's first message."""
+
+    messages = [
+        (
+            "system",
+            "Generate a short, descriptive chat title of 3 to 5 words. "
+            "Use the user's message to identify the main topic. "
+            "Return only the title, without quotes or punctuation."
+        ),
+        ("human", user_message),
+    ]
+
+    reply = await get_llm().ainvoke(messages)
+
+    title = str(reply.content).strip().strip('"').strip("'")
+
+    return " ".join(title.split()[:5]) or "New Chat"

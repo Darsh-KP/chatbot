@@ -117,12 +117,22 @@ def add_msgs_to_chat(chat_id: int, msgs: list[tuple[int, str]]) -> bool:
             conn.rollback()
             raise
 
-def create_chat(chat_id: int, msgs: list[tuple[int, str]]) -> None:
+
+def create_chat(
+    chat_id: int,
+    msgs: list[tuple[int, str]],
+    title: str
+) -> None:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
-        with conn:  # commits if the block succeeds, rolls back if anything raises
-            conn.execute(INSERT_TITLE, (chat_id, None))
+        with conn:
+            conn.execute(INSERT_TITLE, (chat_id, title))
+
             for role, msg in msgs:
-                conn.execute(INSERT_MSG, (chat_id, chat_id, role, msg))
+                conn.execute(
+                    INSERT_MSG,
+                    (chat_id, chat_id, role, msg)
+                )
+
 
 def delete_chat(chat_id: int) -> bool:
     with closing(sqlite3.connect(DATABASE_PATH)) as conn:
