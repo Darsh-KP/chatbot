@@ -31,7 +31,7 @@
                 [routerLinkActiveOptions]="{ exact: true }"
                 class="chat-thread chat-thread-link"
               >
-                <span class="chat-thread-title">{{ chat.title }}</span>
+                <span class="chat-thread-title">{{ chat.title ?? chat.chat_id }}</span>
               </a>
               <!-- Adding a button to delete the chat with a trash can icon -->
               <button
@@ -70,7 +70,7 @@
     <!-- Scrollable Message Area -->
     <main class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col gap-4
                  scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400">
-      @if (!chat_id() || chat_id() === 'new') {
+      @if (messages().length === 0) {
         <!-- Start a new chat -->
         <div class="flex flex-col items-center justify-center my-auto text-center">
           <app-gif-container [phase]="gifPhase"></app-gif-container>
@@ -97,6 +97,7 @@
           <div class="flex w-full fade-mask-container">
             <textarea
               [formControl]="userInputControl"
+              [readonly]="loading()"
               cdkTextareaAutosize
               #autosize="cdkTextareaAutosize"
               cdkAutosizeMinRows="1"
@@ -115,7 +116,7 @@
             aria-label="Submit Question"
             class="self-end mb-0.5"
             (click)="submitUserMessage()"
-            [disabled]="userInputControl.invalid || !userInputControl.value?.trim()"
+            [disabled]="userInputControl.invalid || !userInputControl.value?.trim() || loading()"
           >
             <mat-icon>send</mat-icon>
           </button>

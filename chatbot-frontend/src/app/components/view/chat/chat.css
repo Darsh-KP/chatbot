@@ -184,7 +184,7 @@
 
 .chat-prompt textarea::placeholder {
   color: var(--mat-sys-on-surface-variant);
-  opacity: 1;
+  opacity: 0.7;
 }
 
 @media (max-width: 640px) {

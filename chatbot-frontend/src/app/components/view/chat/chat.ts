@@ -45,12 +45,15 @@ export class Chat {
   // Hold your message state
   messages = signal<MessageResponseDTO[]>([]);
 
+  // To track if we are waiting for a system response
+  readonly loading = signal<boolean>(false);
+
   constructor() {
     // Automatically re-run this logic whenever the URL link shifts!
     effect(() => {
       const currentId = this.chat_id();
 
-      console.log("current chat: " + currentId);
+      console.log('current chat: ' + currentId);
 
       if (currentId && currentId !== 'new') {
         // State A: We have a real chat ID -> Fetch history
@@ -145,41 +148,64 @@ export class Chat {
       return;
     }
 
-    console.log("user message: " + userMessage);
+    this.loading.set(true);
+
+    // Add sent message to displayed chat
+    this.messages.update((prev) => [
+      ...prev,
+      {
+        role: 0,
+        message: userMessage,
+        epoch_seconds: Math.floor(Date.now() / 1000),
+        seq_num: prev.length + 1,
+      },
+    ]);
+    this.userInputControl.reset();
 
     const chatId = this.chat_id();
 
     if (chatId) {
       this.chatService
         .postChatMessage(chatId, {
-          user_message: userMessage
+          user_message: userMessage,
         })
         .subscribe({
           next: (response) => {
-            console.log(response);
+            // Add response to displayed chat
+            this.messages.update((prev) => [
+              ...prev,
+              {
+                role: 1,
+                message: response.system_message,
+                epoch_seconds: response.epoch_seconds,
+                seq_num: response.seq_num,
+              },
+            ]);
+            this.loading.set(false);
           },
 
           error: (error) => {
             console.log(error);
-          }
-        })
-      ;
+            this.loading.set(false);
+          },
+        });
     } else {
       this.chatService
         .postFirstChatMessage({
-          user_message: userMessage
+          user_message: userMessage,
         })
         .subscribe({
           next: (response) => {
-            console.log(response);
+            // Add response to displayed chat
+            this.loading.set(false);
+            void this.router.navigate(['/chats', response.chat_id]);
           },
 
           error: (error) => {
             console.log(error);
-          }
-        })
+            this.loading.set(false);
+          },
+        });
     }
-
-    this.userInputControl.reset();
   }
 }
