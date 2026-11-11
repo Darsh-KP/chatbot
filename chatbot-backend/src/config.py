@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 768
     llm_timeout_seconds: float = 120.0
     ollama_base_url: str = "http://localhost:11434"
-    rag_collection: str = "spring_docs"
+    rag_collection: str = "spring-docs"
     rag_top_k: int = 4  
     rag_max_distance: float | None = None
     rag_rewrite_query: bool = False

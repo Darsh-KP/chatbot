@@ -3,10 +3,13 @@
 import asyncio
 
 from langchain_core.documents import Document
-
+import asyncio
+import logging
 from config import settings
 from llm import get_llm
 from services.vectordb_service import search_collection
+
+LOGGER = logging.getLogger(__name__)
 
 NOT_FOUND_MESSAGE = "I couldn't find that in the Spring documentation."
 
