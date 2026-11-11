@@ -1,35 +1,37 @@
-
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 # Allow imports from the src directory
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parents[1] / "src")
-)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from main import app
+import main
 from repository import chats_repo
+
+
+def fake_answer_for(question: str) -> str:
+    return f"Fake answer to: {question}"
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     # Use a separate temporary database for every test
-    db_path = tmp_path / "test_chat.db"
+    monkeypatch.setattr(chats_repo, "DATABASE_PATH", tmp_path / "test_chat.db")
 
-    monkeypatch.setattr(
-        chats_repo,
-        "DATABASE_PATH",
-        db_path
-    )
+    # Never call Ollama / the vector store in tests: replace the answer step with a fake.
+    async def fake_answer_question(question: str) -> dict:
+        return {"answer": fake_answer_for(question), "sources": [], "best_distance": 0.0, "retrieved": 0}
 
-    with TestClient(app) as test_client:
+    monkeypatch.setattr(main, "answer_question", fake_answer_question)
+
+    with TestClient(main.app) as test_client:
         yield test_client
+
+
+def roles_and_texts(messages):
+    return [(m["role"], m["message"]) for m in messages]
 
 
 def test_get_chats_empty(client):
@@ -52,25 +54,18 @@ def test_delete_nonexistent_chat(client):
 
 
 def test_create_chat(client):
-    response = client.post(
-        "/chats/new",
-        json={"user_message": "What is FastAPI?"}
-    )
+    response = client.post("/chats/new", json={"user_message": "What is FastAPI?"})
 
     assert response.status_code == 201
 
     data = response.json()
 
-    assert "chat_id" in data
     assert isinstance(data["chat_id"], int)
-    assert data["system_message"] is None
+    assert data["system_message"] == fake_answer_for("What is FastAPI?")
 
 
 def test_get_chats_after_creation(client):
-    create_response = client.post(
-        "/chats/new",
-        json={"user_message": "What is FastAPI?"}
-    )
+    create_response = client.post("/chats/new", json={"user_message": "What is FastAPI?"})
 
     assert create_response.status_code == 201
 
@@ -79,18 +74,11 @@ def test_get_chats_after_creation(client):
     response = client.get("/chats")
 
     assert response.status_code == 200
-
-    assert any(
-        chat["chat_id"] == chat_id
-        for chat in response.json()["chats"]
-    )
+    assert any(chat["chat_id"] == chat_id for chat in response.json()["chats"])
 
 
 def test_get_messages_after_creation(client):
-    create_response = client.post(
-        "/chats/new",
-        json={"user_message": "Hello chatbot"}
-    )
+    create_response = client.post("/chats/new", json={"user_message": "Hello chatbot"})
 
     assert create_response.status_code == 201
 
@@ -100,48 +88,44 @@ def test_get_messages_after_creation(client):
 
     assert response.status_code == 200
 
-    messages = response.json()["messages"]
-
-    assert len(messages) >= 1
-    assert messages[0]["message"] == "Hello chatbot"
-    assert messages[0]["role"] == 0
+    # The first user message and the system answer are stored together.
+    assert roles_and_texts(response.json()["messages"]) == [
+        (0, "Hello chatbot"),
+        (1, fake_answer_for("Hello chatbot")),
+    ]
 
 
 def test_add_message_to_existing_chat(client):
-    create_response = client.post(
-        "/chats/new",
-        json={
-            "user_message": "Hello chatbot"
-        }
-    )
+    create_response = client.post("/chats/new", json={"user_message": "Hello chatbot"})
     assert create_response.status_code == 201
 
     chat_id = create_response.json()["chat_id"]
 
-    response = client.post(
-        f"/chats/{chat_id}",
-        json={
-            "user_message": "What is FastAPI?"
-        }
-    )
+    response = client.post(f"/chats/{chat_id}", json={"user_message": "What is FastAPI?"})
 
     assert response.status_code == 201
+    assert response.json() == {"system_message": fake_answer_for("What is FastAPI?")}
 
     messages_response = client.get(f"/chats/{chat_id}")
     assert messages_response.status_code == 200
 
-    messages = messages_response.json()["messages"]
+    # Alternating user / system messages, oldest first.
+    assert roles_and_texts(messages_response.json()["messages"]) == [
+        (0, "Hello chatbot"),
+        (1, fake_answer_for("Hello chatbot")),
+        (0, "What is FastAPI?"),
+        (1, fake_answer_for("What is FastAPI?")),
+    ]
 
-    assert len(messages) == 2
-    assert messages[0]["message"] == "Hello chatbot"
-    assert messages[1]["message"] == "What is FastAPI?"
+
+def test_add_message_to_nonexistent_chat(client):
+    response = client.post("/chats/999999", json={"user_message": "Anyone there?"})
+
+    assert response.status_code == 404
 
 
 def test_delete_existing_chat(client):
-    create_response = client.post(
-        "/chats/new",
-        json={"user_message": "Chat to delete"}
-    )
+    create_response = client.post("/chats/new", json={"user_message": "Chat to delete"})
     assert create_response.status_code == 201
 
     chat_id = create_response.json()["chat_id"]
@@ -154,43 +138,48 @@ def test_delete_existing_chat(client):
     assert get_response.status_code == 404
 
     chats_response = client.get("/chats")
-    assert all(
-        chat["chat_id"] != chat_id
-        for chat in chats_response.json()["chats"]
-    )
+    assert all(chat["chat_id"] != chat_id for chat in chats_response.json()["chats"])
 
 
 def test_chat_list_has_no_duplicates(client):
-    response = client.post(
-        "/chats/new",
-        json={"user_message": "First message"}
-    )
+    response = client.post("/chats/new", json={"user_message": "First message"})
     assert response.status_code == 201
 
     chat_id = response.json()["chat_id"]
 
-    response = client.post(
-        f"/chats/{chat_id}",
-        json={"user_message": "Second message"}
-    )
+    response = client.post(f"/chats/{chat_id}", json={"user_message": "Second message"})
     assert response.status_code == 201
 
     response = client.get("/chats")
     assert response.status_code == 200
 
-    matching_chats = []
-
-    for chat in response.json()["chats"]:
-        if chat["chat_id"] == chat_id:
-            matching_chats.append(chat)
+    matching_chats = [chat for chat in response.json()["chats"] if chat["chat_id"] == chat_id]
 
     assert len(matching_chats) == 1
 
 
 def test_invalid_message_body(client):
-    response = client.post(
-        "/chats/new",
-        json={"wrong_field": "Hello"}
-    )
+    response = client.post("/chats/new", json={"wrong_field": "Hello"})
 
     assert response.status_code == 422
+
+
+def test_blank_message_is_rejected(client):
+    assert client.post("/chats/new", json={"user_message": "   "}).status_code == 422
+
+    chat_id = client.post("/chats/new", json={"user_message": "Hi"}).json()["chat_id"]
+    assert client.post(f"/chats/{chat_id}", json={"user_message": "   "}).status_code == 422
+
+
+def test_model_failure_returns_500_and_saves_nothing(client, monkeypatch):
+    async def failing_answer_question(question: str) -> dict:
+        raise RuntimeError("model is down")
+
+    monkeypatch.setattr(main, "answer_question", failing_answer_question)
+
+    response = client.post("/chats/new", json={"user_message": "Hello"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "An unexpected error occurred."}
+    # No half-created chat is left behind.
+    assert client.get("/chats").json() == {"chats": []}
