@@ -10,7 +10,7 @@ import logging
 
 from fastapi import Body, FastAPI, HTTPException, Path, Response
 from pydantic import StringConstraints
-from services.rag_service import answer_question
+from services.rag_service import answer_question, generate_chat_title
 from models.ChatModel import ChatModel
 from models.ChatListModel import ChatListModel
 from models.MsgModel import MsgModel
@@ -51,16 +51,30 @@ async def _answer(question: str) -> str:
         LOGGER.exception("Failed to answer question")  # real cause goes to the server log only
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
+async def _save_new_chat(
+    chat_id: int,
+    user_text: str,
+    system_text: str,
+    title: str
+) -> None:
+    msgs = [
+        (USER_ROLE, user_text),
+        (SYSTEM_ROLE, system_text)
+    ]
 
-async def _save_new_chat(chat_id: int, user_text: str, system_text: str) -> None:
-    msgs = [(USER_ROLE, user_text), (SYSTEM_ROLE, system_text)]
     try:
-        # One transaction: title + both messages are stored, or nothing is.
-        await asyncio.to_thread(chats_repo.create_chat, chat_id, msgs)
+        await asyncio.to_thread(
+            chats_repo.create_chat,
+            chat_id,
+            msgs,
+            title
+        )
     except Exception:
         LOGGER.exception("Failed to save new chat")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
-
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred."
+        )
 
 async def _save_exchange(chat_id: int, user_text: str, system_text: str) -> None:
     msgs = [(USER_ROLE, user_text), (SYSTEM_ROLE, system_text)]
@@ -77,14 +91,30 @@ def ingest_data():
     chunks_ingested = ingest_adoc_directory(settings.rag_collection)
     return {"collection": settings.rag_collection, "chunks_ingested": chunks_ingested}
 
-
 @app.post("/chats/new", status_code=201)
 async def new_chat(user_message: UserMessage):
     system_message = await _answer(user_message)
-    chat_id = randbits(32) 
-    await _save_new_chat(chat_id, user_message, system_message)
-    return {"chat_id": chat_id, "system_message": system_message}
 
+    # Generate a short title from the first message
+    try:
+        title = await generate_chat_title(user_message)
+    except Exception:
+        LOGGER.exception("Failed to generate chat title")
+        title = "New Chat"
+
+    chat_id = randbits(32)
+
+    await _save_new_chat(
+        chat_id,
+        user_message,
+        system_message,
+        title
+    )
+
+    return {
+        "chat_id": chat_id,
+        "system_message": system_message
+    }
 
 @app.post("/chats/{chat_id}", status_code=201)
 async def add_msg(chat_id: Annotated[int, Path(ge=0, le=SQLITE_MAX_INT)], user_message: UserMessage):
