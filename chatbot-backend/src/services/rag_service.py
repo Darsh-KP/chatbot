@@ -100,6 +100,12 @@ async def answer_question(question: str) -> dict:
     results = await asyncio.to_thread(
         search_collection, settings.rag_collection, search_text, settings.rag_top_k
     )
+    if not results:
+        LOGGER.warning(
+            "The search found nothing in collection %r. Is it empty? Ingest the docs (POST /ingest), "
+            "or check RAG_COLLECTION.",
+            settings.rag_collection,
+        )
 
     best = min((distance for _, distance in results), default=None)
     too_weak = best is None or (
