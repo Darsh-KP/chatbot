@@ -1,10 +1,10 @@
 
 
 import asyncio
+import logging
 
 from langchain_core.documents import Document
-import asyncio
-import logging
+
 from config import settings
 from llm import get_llm
 from services.vectordb_service import search_collection
@@ -12,30 +12,35 @@ from services.vectordb_service import search_collection
 LOGGER = logging.getLogger(__name__)
 
 NOT_FOUND_MESSAGE = "I couldn't find that in the Spring documentation."
+OFF_TOPIC_MESSAGE = "I can only help with questions about Spring and its documentation."
+FALLBACK_SOURCES = 2
+NOT_FROM_EXCERPTS = (OFF_TOPIC_MESSAGE.lower(), "excerpts don't cover", "excerpts do not cover", "general knowledge")
 
 SYSTEM_PROMPT = """You are a friendly Spring Framework tutor who explains things to beginners. \
 Answer the user's question about Spring clearly and accurately.
 
 How to answer:
 - First work out what the user is really asking. Questions are often casual or use different words \
-than the documentation. Answer the intent, not just the literal words.
+than the documentation (for example, "the things that classify a class" usually means annotations \
+or stereotype annotations). Answer the intent, not just the literal words.
 - Use the documentation excerpts below as your main source, and prefer them whenever they cover the question.
 - If the excerpts only partly cover the question, or not at all, you may answer from your general \
-knowledge of Spring. When you do, say so briefly, for example: "The Spring Documentation doesn't cover this directly, \
+knowledge of Spring. When you do, say so briefly, for example: "The excerpts don't cover this directly, \
 but in general...".
 - Use simple, everyday words and short sentences. Explain any technical term the first time you use it, \
 as if you were talking to someone new to Spring.
 - Include one short real-world analogy from everyday life (for example a restaurant, a library, a post \
 office or a school) that matches how the Spring feature really works. Start it with "Think of it like..." \
-and keep it to two or three sentences. The analogy only helps understanding, so put the exact technical \
-facts in your explanation, not in the analogy.
+and keep it to two or three sentences. Use exactly one analogy, never a second one. The analogy only helps \
+understanding, so put the exact technical facts in your explanation, not in the analogy.
 - Copy class names, annotations, method names and configuration properties exactly. Never invent one. \
 If you are not sure a name exists, say you are not sure.
 - Keep code examples short and correct, and prefer code taken from the excerpts.
 - If the question has nothing to do with Spring or Java development (for example poems, personal \
-advice, or anything harmful), politely say you can only help with Spring questions.
+advice, or anything harmful), reply exactly: "{off_topic}"
 - If the question is too vague to answer, ask one short clarifying question instead (no analogy needed).
-- Keep the whole answer fairly short. 
+- Keep the whole answer under about 150 words, not counting code. Do not explain the same example twice.
+- Do not write a list of sources or file names. They are added automatically after your answer.
 
 Documentation excerpts:
 {context}
@@ -50,7 +55,6 @@ Question: {question}"""
 
 
 def _display_path(source: str) -> str:
-    """Show 'core/aop.adoc' instead of a full path from whichever machine ran the ingestion."""
     normalized = source.replace("\\", "/")
     marker = "data/pages/"
     return normalized.split(marker, 1)[1] if marker in normalized else normalized
@@ -58,11 +62,30 @@ def _display_path(source: str) -> str:
 
 def _format_context(results: list[tuple[Document, float]]) -> str:
     blocks = []
-    for i, (doc, _distance) in enumerate(results, start=1):
+    for doc, _distance in results:
         title = doc.metadata.get("title", "Untitled")
         path = _display_path(doc.metadata.get("source", ""))
-        blocks.append(f"[Excerpt {i}: {title} ({path})]\n{doc.page_content}")
+        blocks.append(f"{title} ({path})\n{doc.page_content}")
     return "\n\n".join(blocks)
+
+
+def _from_excerpts(answer: str) -> bool:
+    lowered = answer.lower()
+    return not any(marker in lowered for marker in NOT_FROM_EXCERPTS)
+
+
+def _sources_footer(results: list[tuple[Document, float]]) -> str:
+    lines, seen = [], set()
+    for doc, _distance in results:
+        title = doc.metadata.get("title", "Untitled")
+        path = _display_path(doc.metadata.get("source", ""))
+        if (title, path) in seen:
+            continue  # several chunks of one page: list the page once
+        seen.add((title, path))
+        lines.append(f"- {title} ({path})" if path else f"- {title}")
+        if len(lines) == FALLBACK_SOURCES:
+            break
+    return "\n\n**Sources**\n" + "\n".join(lines) if lines else ""
 
 
 def _to_sources(results: list[tuple[Document, float]]) -> list[dict]:
@@ -75,6 +98,7 @@ def _to_sources(results: list[tuple[Document, float]]) -> list[dict]:
         }
         for doc, distance in results
     ]
+
 
 async def _search_text(question: str) -> str:
     if not settings.rag_rewrite_query:
@@ -96,10 +120,10 @@ async def answer_question(question: str) -> dict:
 
     search_text = await _search_text(question)
 
- 
     results = await asyncio.to_thread(
         search_collection, settings.rag_collection, search_text, settings.rag_top_k
     )
+
     if not results:
         LOGGER.warning(
             "The search found nothing in collection %r. Is it empty? Ingest the docs (POST /ingest), "
@@ -115,13 +139,16 @@ async def answer_question(question: str) -> dict:
         return {"answer": NOT_FOUND_MESSAGE, "sources": [], "best_distance": best, "retrieved": len(results)}
 
     messages = [
-        ("system", SYSTEM_PROMPT.format(context=_format_context(results))),
+        ("system", SYSTEM_PROMPT.format(context=_format_context(results), off_topic=OFF_TOPIC_MESSAGE)),
         ("human", question),
     ]
     reply = await get_llm().ainvoke(messages)
 
+    answer = str(reply.content).strip()
+    footer = _sources_footer(results) if _from_excerpts(answer) else ""
+
     return {
-        "answer": str(reply.content).strip(),
+        "answer": answer + footer,
         "sources": _to_sources(results),
         "best_distance": best,
         "retrieved": len(results),
