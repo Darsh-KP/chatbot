@@ -14,6 +14,7 @@ from services.rag_service import answer_question
 from models.ChatModel import ChatModel
 from models.ChatListModel import ChatListModel
 from models.MsgModel import MsgModel
+from services.vectordb_service import ingest_adoc_directory
 from models.MsgListModel import MsgListModel
 
 LOGGER = logging.getLogger(__name__)
@@ -73,8 +74,9 @@ async def _save_exchange(chat_id: int, user_text: str, system_text: str) -> None
         
 @app.post("/ingest")
 def ingest_data():
-    chunks_ingested = ingest_adoc_directory("spring-docs")
-    return {"collection": "spring-docs", "chunks_ingested": chunks_ingested}
+    chunks_ingested = ingest_adoc_directory(settings.rag_collection)
+    return {"collection": settings.rag_collection, "chunks_ingested": chunks_ingested}
+
 
 @app.post("/chats/new", status_code=201)
 async def new_chat(user_message: UserMessage):
