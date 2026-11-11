@@ -70,7 +70,11 @@ async def _save_exchange(chat_id: int, user_text: str, system_text: str) -> None
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
     if not saved:
         raise HTTPException(status_code=404, detail="The chat does not exist")
-
+        
+@app.post("/ingest")
+def ingest_data():
+    chunks_ingested = ingest_adoc_directory("spring-docs")
+    return {"collection": "spring-docs", "chunks_ingested": chunks_ingested}
 
 @app.post("/chats/new", status_code=201)
 async def new_chat(user_message: UserMessage):
