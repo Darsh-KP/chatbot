@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatMiniFabButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
@@ -47,8 +47,17 @@ export class Chat {
 
   // To track if we are waiting for a system response
   readonly loading = signal<boolean>(false);
+  readonly responseAnimationPhase = signal<ResponsePhase>('noAnimation');
+  private animationTimeout: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.clearResponseAnimationTimeout());
+
+    const navigationAnimation = this.router.currentNavigation()?.extras.state?.['responseAnimation'];
+    if (navigationAnimation === 'responseSuccess') {
+      this.showResponseAnimation(navigationAnimation, 2500);
+    }
+
     // Automatically re-run this logic whenever the URL link shifts!
     effect(() => {
       const currentId = this.chat_id();
@@ -144,11 +153,12 @@ export class Chat {
   submitUserMessage(): void {
     const userMessage = this.userInputControl.value.trim();
 
-    if (!userMessage) {
+    if (!userMessage || this.loading()) {
       return;
     }
 
     this.loading.set(true);
+    this.showResponseAnimation('thinking');
 
     // Add sent message to displayed chat
     this.messages.update((prev) => [
@@ -164,11 +174,12 @@ export class Chat {
 
     const chatId = this.chat_id();
 
-    if (chatId) {
+    if (chatId && chatId !== 'new') {
       this.chatService
         .postChatMessage(chatId, {
           user_message: userMessage,
         })
+        .pipe(finalize(() => this.loading.set(false)))
         .subscribe({
           next: (response) => {
             // Add response to displayed chat
@@ -181,12 +192,12 @@ export class Chat {
                 seq_num: response.seq_num,
               },
             ]);
-            this.loading.set(false);
+            this.showResponseAnimation('responseSuccess', 2500);
           },
 
           error: (error) => {
-            console.log(error);
-            this.loading.set(false);
+            console.error('Unable to get a response for this chat.', error);
+            this.showResponseAnimation('responseFailure', 2500);
           },
         });
     } else {
@@ -194,18 +205,39 @@ export class Chat {
         .postFirstChatMessage({
           user_message: userMessage,
         })
+        .pipe(finalize(() => this.loading.set(false)))
         .subscribe({
           next: (response) => {
-            // Add response to displayed chat
-            this.loading.set(false);
-            void this.router.navigate(['/chats', response.chat_id]);
+            // Show the success animation on the newly activated chat route.
+            void this.router.navigate(['/chats', response.chat_id], {
+              state: { responseAnimation: 'responseSuccess' },
+            });
           },
 
           error: (error) => {
-            console.log(error);
-            this.loading.set(false);
+            console.error('Unable to create a chat response.', error);
+            this.showResponseAnimation('responseFailure', 2500);
           },
         });
+    }
+  }
+
+  private showResponseAnimation(phase: ResponsePhase, durationMs?: number): void {
+    this.clearResponseAnimationTimeout();
+    this.responseAnimationPhase.set(phase);
+
+    if (durationMs !== undefined) {
+      this.animationTimeout = setTimeout(() => {
+        this.responseAnimationPhase.set('noAnimation');
+        this.animationTimeout = undefined;
+      }, durationMs);
+    }
+  }
+
+  private clearResponseAnimationTimeout(): void {
+    if (this.animationTimeout !== undefined) {
+      clearTimeout(this.animationTimeout);
+      this.animationTimeout = undefined;
     }
   }
 }
