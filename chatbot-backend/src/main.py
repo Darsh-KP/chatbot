@@ -8,6 +8,8 @@ from repository import chats_repo
 import asyncio
 import logging
 
+from config import settings
+
 from fastapi import Body, FastAPI, HTTPException, Path, Response
 from pydantic import StringConstraints
 from services.rag_service import answer_question, generate_chat_title
