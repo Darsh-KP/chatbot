@@ -8,8 +8,6 @@ Whether you're trying to understand a Spring concept, find an explanation of a p
 
 **No guessing. No unrelated answers. Just Spring documentation.**
 
----
-
 ## Features
 
 - **Documentation-Grounded Answers:** Answers questions exclusively using the ingested Spring documentation. If a question falls outside the available documentation, SpringGPT politely refuses to answer rather than generating an unsupported response.
@@ -20,8 +18,6 @@ Whether you're trying to understand a Spring concept, find an explanation of a p
 - **Dark & Light Themes:** Switch between dark and light modes for a comfortable experience.
 - **Runs Locally:** The application and its AI models run locally, without relying on external AI APIs.
 - **Single-User Application:** Designed as a personal, local documentation assistant rather than a multi-user platform.
-
----
 
 ## Tech Stack
 
@@ -37,8 +33,6 @@ Whether you're trying to understand a Spring concept, find an explanation of a p
 | Search Method | Semantic Similarity Search (Top-K Retrieval) |
 
 All AI models are executed locally through Ollama, keeping the application self-contained.
-
----
 
 ## Getting Started
 
@@ -139,6 +133,16 @@ Open the application in your browser:
 ```text
 http://localhost:4200
 ```
+
+## Team Breadwinners
+
+- [@Darsh-KP](https://github.com/Darsh-KP)
+- [@di-gital](https://github.com/di-gital)
+- [@dlin07](https://github.com/dlin07)
+- [@gilololol64](https://github.com/gilololol64)
+- [@sarinjet1008](https://github.com/sarinjet1008)
+- [@tlee51](https://github.com/tlee51)
+- [@walterl1](https://github.com/walterl1)
 
 ---
 
